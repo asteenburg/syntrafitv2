@@ -32,6 +32,11 @@ type SessionVolume = {
   deltaFromPrevious: number;
 };
 
+type RecoveryRow = {
+  muscle: string;
+  readiness: number;
+};
+
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString(undefined, {
     month: "short",
@@ -154,6 +159,49 @@ export default function HistoryPage() {
     };
   }, [sessionVolumes]);
 
+  const consistencySummary = useMemo(() => {
+    const uniqueDays = new Set(
+      sessions.map((session) => new Date(session.started_at).toISOString().slice(0, 10)),
+    );
+    return {
+      sessionsLast30Days: sessions.filter(
+        (session) =>
+          new Date(session.started_at).getTime() >= Date.now() - 30 * 24 * 60 * 60 * 1000,
+      ).length,
+      activeDays: uniqueDays.size,
+    };
+  }, [sessions]);
+
+  const recoveryRows = useMemo<RecoveryRow[]>(() => {
+    const map = new Map<string, number>();
+    sessions.slice(0, 8).forEach((session) => {
+      session.workout_exercise_entries.forEach((entry) => {
+        const name = entry.exercises?.name?.toLowerCase() ?? "";
+        let muscle = "full body";
+        if (name.includes("squat") || name.includes("lunge")) {
+          muscle = "legs";
+        } else if (name.includes("bench") || name.includes("push")) {
+          muscle = "chest";
+        } else if (name.includes("row") || name.includes("pull")) {
+          muscle = "back";
+        } else if (name.includes("press")) {
+          muscle = "shoulders";
+        }
+        const volume = entry.set_logs.reduce((sum, log) => {
+          if (log.is_warmup) {
+            return sum;
+          }
+          return sum + (log.reps ?? 0) * (log.weight_lbs ?? 0);
+        }, 0);
+        map.set(muscle, (map.get(muscle) ?? 0) + volume);
+      });
+    });
+    return [...map.entries()].map(([muscle, load]) => ({
+      muscle,
+      readiness: Math.max(20, Math.min(100, Math.round(100 - load / 75))),
+    }));
+  }, [sessions]);
+
   const chartSessions = useMemo(() => {
     if (sessionVolumes.length === 0) {
       return [
@@ -185,25 +233,25 @@ export default function HistoryPage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-zinc-950 text-zinc-100">
+      <main className="flex min-h-screen items-center justify-center bg-white text-gray-900">
         <p>Loading workout history...</p>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-zinc-950 px-6 py-10 text-zinc-100">
-      <div className="mx-auto w-full max-w-5xl rounded-2xl border border-zinc-800 bg-zinc-900 p-6">
+    <main className="min-h-screen bg-white px-6 py-10 text-gray-900">
+      <div className="mx-auto w-full max-w-5xl rounded-2xl border border-gray-200 bg-white p-6 shadow-[0_-16px_22px_-22px_rgba(168,85,247,0.35)]">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-3xl font-bold">Workout History</h1>
-            <p className="mt-2 text-sm text-zinc-400">
+            <p className="mt-2 text-sm text-gray-600">
               Track how your training volume changes over time.
             </p>
           </div>
           <Link
             href="/plan"
-            className="rounded-lg border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-200 hover:border-zinc-500"
+            className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:border-gray-400"
           >
             Back to plan
           </Link>
@@ -227,6 +275,39 @@ export default function HistoryPage() {
             </p>
           </div>
         </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <div className="rounded-xl border border-zinc-700 bg-zinc-950 p-4">
+            <p className="text-xs uppercase tracking-wider text-zinc-400">Sessions (30d)</p>
+            <p className="mt-2 text-2xl font-semibold">{consistencySummary.sessionsLast30Days}</p>
+          </div>
+          <div className="rounded-xl border border-zinc-700 bg-zinc-950 p-4">
+            <p className="text-xs uppercase tracking-wider text-zinc-400">Active days</p>
+            <p className="mt-2 text-2xl font-semibold">{consistencySummary.activeDays}</p>
+          </div>
+        </div>
+
+        <section className="mt-4 rounded-xl border border-zinc-700 bg-zinc-950 p-4">
+          <h2 className="font-semibold">Muscle Recovery Readiness</h2>
+          <div className="mt-3 grid gap-2 md:grid-cols-2">
+            {(recoveryRows.length ? recoveryRows : [{ muscle: "full body", readiness: 100 }]).map(
+              (row) => (
+                <div key={row.muscle} className="rounded-md border border-zinc-800 p-3">
+                  <div className="flex items-center justify-between">
+                    <p className="capitalize text-sm">{row.muscle}</p>
+                    <p className="text-sm text-zinc-300">{row.readiness}%</p>
+                  </div>
+                  <div className="mt-2 h-2 overflow-hidden rounded bg-zinc-800">
+                    <div
+                      className="h-full bg-[#CCFF00]"
+                      style={{ width: `${row.readiness}%` }}
+                    />
+                  </div>
+                </div>
+              ),
+            )}
+          </div>
+        </section>
 
         <div className="mt-8 space-y-5">
           <section className="rounded-xl border border-zinc-700 bg-zinc-950 p-4">

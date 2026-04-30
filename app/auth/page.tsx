@@ -59,10 +59,10 @@ export default function AuthPage() {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-zinc-950 px-6 py-10 text-zinc-100">
-      <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-xl">
+    <main className="flex min-h-screen items-center justify-center bg-white px-6 py-10 text-gray-900">
+      <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-lg">
         <h1 className="text-2xl font-bold">Welcome to SyntraFit</h1>
-        <p className="mt-2 text-sm text-zinc-400">
+        <p className="mt-2 text-sm text-gray-600">
           {isSignUp
             ? "Create your account to start your personalized setup."
             : "Log in to continue to your workout setup."}
@@ -79,7 +79,7 @@ export default function AuthPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 outline-none ring-violet-300 focus:ring-2"
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 outline-none ring-violet-300 focus:ring-2"
             />
           </div>
 
@@ -97,7 +97,7 @@ export default function AuthPage() {
               minLength={6}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 outline-none ring-violet-300 focus:ring-2"
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 outline-none ring-violet-300 focus:ring-2"
             />
           </div>
 
@@ -120,7 +120,7 @@ export default function AuthPage() {
             : "Need an account? Sign up"}
         </button>
 
-        {message ? <p className="mt-4 text-sm text-zinc-300">{message}</p> : null}
+        {message ? <p className="mt-4 text-sm text-gray-700">{message}</p> : null}
       </div>
     </main>
   );

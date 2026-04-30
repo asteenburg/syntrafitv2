@@ -10,6 +10,8 @@ type SetupPreferenceRow = {
   equipment_type: string;
   days_per_week: number;
   session_minutes: number;
+  preferred_split: string;
+  disliked_exercises: string[] | null;
 };
 
 type PlanDayExercise = {
@@ -231,6 +233,11 @@ function getDurationBadge(estimated: number, preferred: number | null) {
   };
 }
 
+type ExerciseOption = {
+  id: string;
+  name: string;
+};
+
 export default function PlanPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -241,6 +248,12 @@ export default function PlanPage() {
   const [exerciseWeights, setExerciseWeights] = useState<Record<string, string>>({});
   const [bodyweightOnly, setBodyweightOnly] = useState<Record<string, boolean>>({});
   const [preferredSessionMinutes, setPreferredSessionMinutes] = useState<number | null>(null);
+  const [dayDifficulty, setDayDifficulty] = useState<
+    Record<string, "too_easy" | "just_right" | "too_hard">
+  >({});
+  const [nextWeightSuggestion, setNextWeightSuggestion] = useState<Record<string, string>>({});
+  const [swapOptions, setSwapOptions] = useState<ExerciseOption[]>([]);
+  const [needsRegeneration, setNeedsRegeneration] = useState(false);
 
   const loadPlan = async () => {
     const supabase = getSupabaseClient();
@@ -260,12 +273,28 @@ export default function PlanPage() {
 
     const prefsResult = await supabase
       .from("user_setup_preferences")
-      .select("session_minutes")
+      .select("session_minutes, disliked_exercises")
       .eq("user_id", user.id)
       .maybeSingle();
 
-    if (!prefsResult.error && prefsResult.data?.session_minutes) {
-      setPreferredSessionMinutes(prefsResult.data.session_minutes);
+    const preferenceData = (prefsResult.data as
+      | { session_minutes?: number; disliked_exercises?: string[] | null }
+      | null) ?? null;
+
+    if (!prefsResult.error && preferenceData?.session_minutes) {
+      setPreferredSessionMinutes(preferenceData.session_minutes);
+    }
+    if (!prefsResult.error && preferenceData?.disliked_exercises) {
+      const disliked = preferenceData.disliked_exercises;
+      const conflictFound = program?.program_days.some((day) =>
+        day.program_day_exercises.some((exercise) =>
+          disliked.some(
+            (item) =>
+              exercise.exercises?.name?.toLowerCase().trim() === item.toLowerCase().trim(),
+          ),
+        ),
+      );
+      setNeedsRegeneration(Boolean(conflictFound));
     }
 
     const { data: planData } = await supabase
@@ -316,6 +345,36 @@ export default function PlanPage() {
       });
       setExerciseWeights(initialWeights);
       setBodyweightOnly(initialBodyweightFlags);
+
+      const allExerciseIds = currentProgram.program_days.flatMap((day) =>
+        day.program_day_exercises.map((exercise) => exercise.exercise_id),
+      );
+      const suggestionMap: Record<string, string> = {};
+      for (const exerciseId of allExerciseIds) {
+        const recentLogs = await supabase
+          .from("set_logs")
+          .select("weight_lbs, reps, workout_exercise_entries!inner(exercise_id, session_id)")
+          .eq("workout_exercise_entries.exercise_id", exerciseId)
+          .not("weight_lbs", "is", null)
+          .order("completed_at", { ascending: false })
+          .limit(5);
+
+        const recentLogRows = (recentLogs.data as Array<{ weight_lbs: number | null }> | null) ?? [];
+        const lastWeight = Number(recentLogRows[0]?.weight_lbs ?? 0);
+        if (lastWeight > 0) {
+          suggestionMap[exerciseId] = `${lastWeight + 5} lbs next`;
+        }
+      }
+      setNextWeightSuggestion(suggestionMap);
+    }
+
+    const swapsResult = await supabase
+      .from("exercises")
+      .select("id, name")
+      .order("name", { ascending: true })
+      .limit(120);
+    if (!swapsResult.error) {
+      setSwapOptions((swapsResult.data as ExerciseOption[]) ?? []);
     }
 
     if (currentProgram) {
@@ -326,7 +385,9 @@ export default function PlanPage() {
         .eq("program_id", currentProgram.id);
 
       if (!completionResult.error) {
-        const completed = completionResult.data.map((row) => row.program_day_id);
+        const completedRows =
+          (completionResult.data as Array<{ program_day_id: string }> | null) ?? [];
+        const completed = completedRows.map((row) => row.program_day_id);
         setCompletedDayIds(completed);
       }
     }
@@ -360,7 +421,7 @@ export default function PlanPage() {
 
     const prefsResult = await supabase
       .from("user_setup_preferences")
-      .select("primary_goal, equipment_type, days_per_week, session_minutes")
+      .select("primary_goal, equipment_type, days_per_week, session_minutes, disliked_exercises")
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -373,6 +434,13 @@ export default function PlanPage() {
 
     const preferences = prefsResult.data as SetupPreferenceRow;
     const pool = buildExercisePool(preferences.primary_goal, preferences.equipment_type);
+    const filteredPool = pool.filter(
+      (name) =>
+        !(
+          preferences.disliked_exercises ?? []
+        ).some((item) => item.toLowerCase().trim() === name.toLowerCase().trim()),
+    );
+    const poolToUse = filteredPool.length >= 3 ? filteredPool : pool;
     const baseScheme = buildRepScheme(preferences.primary_goal);
     const scheme = tuneSchemeForDuration(baseScheme, preferences.session_minutes);
     const exercisesPerDay = getExerciseCountForDuration(preferences.session_minutes);
@@ -392,12 +460,13 @@ export default function PlanPage() {
       setGenerating(false);
       return;
     }
+    const createdProgramId = (createdProgram as { id: string }).id;
 
     for (let dayIndex = 0; dayIndex < preferences.days_per_week; dayIndex += 1) {
       const { data: dayRow, error: dayError } = await supabase
         .from("program_days")
         .insert({
-          program_id: createdProgram.id,
+          program_id: createdProgramId,
           day_index: dayIndex,
           name: `Day ${dayIndex + 1}`,
         } as never)
@@ -409,10 +478,11 @@ export default function PlanPage() {
         setGenerating(false);
         return;
       }
+      const dayRowId = (dayRow as { id: string }).id;
 
       const start = (dayIndex * 2) % pool.length;
       const dayExerciseNames = Array.from({ length: exercisesPerDay }, (_, offset) => {
-        return pool[(start + offset) % pool.length];
+        return poolToUse[(start + offset) % poolToUse.length];
       });
 
       for (let i = 0; i < dayExerciseNames.length; i += 1) {
@@ -423,7 +493,7 @@ export default function PlanPage() {
           .eq("name", exerciseName)
           .maybeSingle();
 
-        let exerciseId = existingExercise.data?.id as string | undefined;
+        let exerciseId = (existingExercise.data as { id: string } | null)?.id;
         if (!exerciseId) {
           const insertedExercise = await supabase
             .from("exercises")
@@ -438,7 +508,7 @@ export default function PlanPage() {
             .select("id")
             .single();
 
-          exerciseId = insertedExercise.data?.id as string | undefined;
+          exerciseId = (insertedExercise.data as { id: string } | null)?.id;
         }
 
         if (!exerciseId) {
@@ -448,7 +518,7 @@ export default function PlanPage() {
         }
 
         const exerciseInsert = await supabase.from("program_day_exercises").insert({
-          program_day_id: dayRow.id,
+          program_day_id: dayRowId,
           exercise_id: exerciseId,
           order_index: i,
           target_sets: scheme.sets,
@@ -525,7 +595,7 @@ export default function PlanPage() {
       return;
     }
 
-    const createdSession = await supabase
+    const createdSessionResult = await supabase
       .from("workout_sessions")
       .insert({
         user_id: user.id,
@@ -533,28 +603,38 @@ export default function PlanPage() {
       } as never)
       .select("id")
       .single();
+    const createdSession = createdSessionResult as {
+      data: { id: string } | null;
+      error: { message: string } | null;
+    };
 
     if (createdSession.error || !createdSession.data) {
       setFeedback(`Completion saved, but could not create workout log: ${createdSession.error?.message}`);
       setCompletedDayIds((prev) => [...prev, dayId]);
       return;
     }
+    const createdSessionId = (createdSession.data as { id: string }).id;
 
     for (const exercise of selectedDay.program_day_exercises) {
-      const createdEntry = await supabase
+      const createdEntryResult = await supabase
         .from("workout_exercise_entries")
         .insert({
-          session_id: createdSession.data.id,
+          session_id: createdSessionId,
           exercise_id: exercise.exercise_id,
           order_index: exercise.order_index,
         } as never)
         .select("id")
         .single();
+      const createdEntry = createdEntryResult as {
+        data: { id: string } | null;
+        error: { message: string } | null;
+      };
 
       if (createdEntry.error || !createdEntry.data) {
         setFeedback(`Workout log partially saved: ${createdEntry.error?.message ?? "Entry error"}`);
         continue;
       }
+      const createdEntryId = (createdEntry.data as { id: string }).id;
 
       const setsCount = exercise.target_sets ?? 1;
       const repsValue = exercise.target_reps_max ?? exercise.target_reps_min ?? 8;
@@ -563,7 +643,7 @@ export default function PlanPage() {
 
       for (let setNumber = 1; setNumber <= setsCount; setNumber += 1) {
         const setInsert = await supabase.from("set_logs").insert({
-          entry_id: createdEntry.data.id,
+          entry_id: createdEntryId,
           set_number: setNumber,
           reps: repsValue,
           weight_lbs: useBodyweightOnly || enteredWeight <= 0 ? null : enteredWeight,
@@ -577,12 +657,44 @@ export default function PlanPage() {
       }
     }
 
+    const selectedDifficulty = dayDifficulty[dayId] ?? "just_right";
+    await supabase.from("workout_day_feedback").insert({
+      user_id: user.id,
+      program_id: program.id,
+      program_day_id: dayId,
+      session_id: createdSessionId,
+      difficulty: selectedDifficulty,
+    } as never);
+
     setCompletedDayIds((prev) => [...prev, dayId]);
+  };
+
+  const swapExercise = async (
+    programDayExerciseId: string,
+    nextExerciseId: string,
+    dayId: string,
+  ) => {
+    const supabase = getSupabaseClient();
+    if (!supabase || !program) {
+      return;
+    }
+    const updateResult = await supabase
+      .from("program_day_exercises")
+      .update({ exercise_id: nextExerciseId } as never)
+      .eq("id", programDayExerciseId);
+
+    if (updateResult.error) {
+      setFeedback(`Could not swap exercise: ${updateResult.error.message}`);
+      return;
+    }
+
+    await loadPlan();
+    setFeedback(`Exercise swapped for ${program.program_days.find((d) => d.id === dayId)?.name ?? "day"}.`);
   };
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-zinc-950 text-zinc-100">
+      <main className="flex min-h-screen items-center justify-center bg-white text-gray-900">
         <p>Loading your plan...</p>
       </main>
     );
@@ -592,32 +704,37 @@ export default function PlanPage() {
   const totalDays = program?.program_days.length ?? 0;
 
   return (
-    <main className="min-h-screen bg-zinc-950 px-6 py-10 text-zinc-100">
-      <div className="mx-auto w-full max-w-4xl rounded-2xl border border-zinc-800 bg-zinc-900 p-6">
+    <main className="min-h-screen bg-white px-6 py-10 text-gray-900">
+      <div className="mx-auto w-full max-w-4xl rounded-2xl border border-gray-200 bg-white p-6 shadow-[0_-20px_26px_-22px_rgba(168,85,247,0.55)]">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-3xl font-bold">My Plan</h1>
-            <p className="mt-2 text-sm text-zinc-400">
+            <p className="mt-2 text-sm text-gray-600">
               {program
                 ? `${completedCount} of ${totalDays} workout days completed this cycle.`
                 : "No plan yet. Generate your starter plan based on setup."}
             </p>
             {preferredSessionMinutes ? (
-              <p className="mt-1 text-xs text-zinc-500">
+              <p className="mt-1 text-xs text-gray-500">
                 Preferred session duration: {preferredSessionMinutes} minutes
+              </p>
+            ) : null}
+            {needsRegeneration ? (
+              <p className="mt-1 text-xs text-[#ffb3b3]">
+                Your preferences changed. Regenerate plan to apply updates.
               </p>
             ) : null}
           </div>
           <div className="flex items-center gap-2">
             <Link
               href="/setup"
-              className="rounded-lg border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-200 hover:border-zinc-500"
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:border-gray-400"
             >
               Setup
             </Link>
             <Link
               href="/preferences"
-              className="rounded-lg border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-200 hover:border-zinc-500"
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:border-gray-400"
             >
               Preferences
             </Link>
@@ -653,8 +770,8 @@ export default function PlanPage() {
                     key={day.id}
                     className={`rounded-xl border p-4 ${
                       completed
-                        ? "border-[#CCFF00]/60 bg-[#CCFF00]/10"
-                        : "border-zinc-700 bg-zinc-950"
+                        ? "border-[#CCFF00]/60 bg-[#CCFF00]/10 text-zinc-500"
+                        : "border-zinc-700 bg-zinc-950 text-zinc-500"
                     }`}
                   >
                     <div className="mb-3 flex items-center justify-between gap-3">
@@ -683,7 +800,41 @@ export default function PlanPage() {
                         >
                           {completed ? "Completed" : "Mark Complete"}
                         </button>
+                        <Link
+                          href={`/workout?dayId=${day.id}`}
+                          className="rounded-md border border-zinc-600 px-3 py-2 text-sm font-medium text-zinc-200 hover:border-zinc-400"
+                        >
+                          Start Workout
+                        </Link>
                       </div>
+                    </div>
+                    <div className="mb-3 flex items-center gap-2 text-xs">
+                      <span className="text-zinc-400">How did this session feel?</span>
+                      {(
+                        [
+                          ["too_easy", "Too easy"],
+                          ["just_right", "Just right"],
+                          ["too_hard", "Too hard"],
+                        ] as const
+                      ).map(([value, label]) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() =>
+                            setDayDifficulty((prev) => ({
+                              ...prev,
+                              [day.id]: value,
+                            }))
+                          }
+                          className={`rounded-full border px-2 py-1 ${
+                            (dayDifficulty[day.id] ?? "just_right") === value
+                              ? "border-violet-300 text-violet-200"
+                              : "border-zinc-700 text-zinc-400"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
                     </div>
                     <ul className="space-y-2">
                       {day.program_day_exercises
@@ -702,6 +853,11 @@ export default function PlanPage() {
                               {exercise.target_reps_max ?? 0} reps, rest{" "}
                               {exercise.rest_seconds ?? 0}s
                             </p>
+                            {nextWeightSuggestion[exercise.exercise_id] ? (
+                              <p className="mt-1 text-xs text-[#CCFF00]">
+                                Suggested progression: {nextWeightSuggestion[exercise.exercise_id]}
+                              </p>
+                            ) : null}
                             <div className="mt-3 flex flex-wrap items-center gap-3">
                               <label className="flex items-center gap-2 text-sm text-zinc-300">
                                 <span>Weight (lbs)</span>
@@ -733,6 +889,29 @@ export default function PlanPage() {
                                   className="h-4 w-4 accent-violet-400"
                                 />
                                 Bodyweight only
+                              </label>
+                              <label className="flex items-center gap-2 text-sm text-zinc-300">
+                                <span>Swap</span>
+                                <select
+                                  defaultValue=""
+                                  onChange={(event) => {
+                                    if (!event.target.value) {
+                                      return;
+                                    }
+                                    void swapExercise(exercise.id, event.target.value, day.id);
+                                  }}
+                                  className="rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1 text-zinc-100"
+                                >
+                                  <option value="">Pick exercise</option>
+                                  {swapOptions
+                                    .filter((option) => option.id !== exercise.exercise_id)
+                                    .slice(0, 30)
+                                    .map((option) => (
+                                      <option key={option.id} value={option.id}>
+                                        {option.name}
+                                      </option>
+                                    ))}
+                                </select>
                               </label>
                             </div>
                           </li>

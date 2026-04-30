@@ -54,7 +54,7 @@ export default function SiteHeader() {
   };
 
   return (
-    <header className="border-b border-zinc-800/80 bg-zinc-950/90 backdrop-blur">
+    <header className="border-b border-gray-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4 md:px-10">
         <Link
           href="/"
@@ -65,36 +65,36 @@ export default function SiteHeader() {
         <nav className="flex items-center gap-2 text-sm">
           <Link
             href="/"
-            className="rounded-md px-3 py-2 text-zinc-200 transition hover:bg-zinc-800 hover:text-zinc-100"
+            className="rounded-md px-3 py-2 text-gray-700 transition hover:bg-gray-100 hover:text-gray-900"
           >
             Home
           </Link>
           <Link
             href="/setup"
-            className="rounded-md px-3 py-2 text-zinc-200 transition hover:bg-zinc-800 hover:text-zinc-100"
+            className="rounded-md px-3 py-2 text-gray-700 transition hover:bg-gray-100 hover:text-gray-900"
           >
             Setup
           </Link>
           <Link
             href="/preferences"
-            className="rounded-md px-3 py-2 text-zinc-200 transition hover:bg-zinc-800 hover:text-zinc-100"
+            className="rounded-md px-3 py-2 text-gray-700 transition hover:bg-gray-100 hover:text-gray-900"
           >
             Preferences
           </Link>
           <Link
             href="/plan"
-            className="rounded-md px-3 py-2 text-zinc-200 transition hover:bg-zinc-800 hover:text-zinc-100"
+            className="rounded-md px-3 py-2 text-gray-700 transition hover:bg-gray-100 hover:text-gray-900"
           >
             My Plan
           </Link>
           <Link
             href="/history"
-            className="rounded-md px-3 py-2 text-zinc-200 transition hover:bg-zinc-800 hover:text-zinc-100"
+            className="rounded-md px-3 py-2 text-gray-700 transition hover:bg-gray-100 hover:text-gray-900"
           >
             History
           </Link>
           {isCheckingAuth ? (
-            <span className="rounded-md border border-zinc-700 px-3 py-2 text-zinc-300">
+            <span className="rounded-md border border-gray-300 px-3 py-2 text-gray-500">
               ...
             </span>
           ) : isAuthenticated ? (
@@ -109,7 +109,7 @@ export default function SiteHeader() {
           ) : (
             <Link
               href="/auth"
-              className="rounded-md border border-violet-400/30 px-3 py-2 font-medium text-violet-200 transition hover:border-violet-300/60 hover:bg-violet-400/10"
+              className="rounded-md border border-violet-400/40 px-3 py-2 font-medium text-violet-700 transition hover:border-violet-500/60 hover:bg-violet-100"
             >
               Sign In
             </Link>
