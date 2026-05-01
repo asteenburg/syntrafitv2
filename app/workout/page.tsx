@@ -25,7 +25,9 @@ function WorkoutContent() {
   const [feedback, setFeedback] = useState("");
   const [exerciseRows, setExerciseRows] = useState<WorkoutExercise[]>([]);
   const [weights, setWeights] = useState<Record<string, string>>({});
-  const [completedSets, setCompletedSets] = useState<Record<string, number>>({});
+  const [completedSets, setCompletedSets] = useState<Record<string, number>>(
+    {},
+  );
   const [startedAt] = useState<number>(Date.now());
 
   useEffect(() => {
@@ -107,8 +109,9 @@ function WorkoutContent() {
     }
 
     // 1. Create workout session
-    const { data: sessionData, error: sessionError } = await (supabase
-      .from("workout_sessions") as any)
+    const { data: sessionData, error: sessionError } = await (
+      supabase.from("workout_sessions") as any
+    )
       .insert({
         user_id: user.id,
         title: "Guided Workout",
@@ -131,8 +134,9 @@ function WorkoutContent() {
       order_index: exercise.order_index,
     }));
 
-    const { data: entriesData, error: entriesError } = await (supabase
-      .from("workout_exercise_entries") as any)
+    const { data: entriesData, error: entriesError } = await (
+      supabase.from("workout_exercise_entries") as any
+    )
       .insert(entriesPayload)
       .select("id, exercise_id, order_index");
 
@@ -147,7 +151,7 @@ function WorkoutContent() {
 
     for (const exercise of exerciseRows) {
       const entry = entriesData.find(
-        (e: any) => e.order_index === exercise.order_index
+        (e: any) => e.order_index === exercise.order_index,
       );
 
       const setsToSave = completedSets[exercise.id] ?? 0;
@@ -164,9 +168,9 @@ function WorkoutContent() {
     }
 
     if (setLogs.length > 0) {
-      const { error: setError } = await (supabase
-        .from("set_logs") as any)
-        .insert(setLogs);
+      const { error: setError } = await (
+        supabase.from("set_logs") as any
+      ).insert(setLogs);
 
       if (setError) {
         setFeedback("Failed saving sets.");
@@ -180,47 +184,50 @@ function WorkoutContent() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center">
+      <main className='flex min-h-screen items-center justify-center'>
         Loading...
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-zinc-950 px-6 py-10 text-zinc-100">
-      <div className="mx-auto w-full max-w-3xl rounded-2xl border border-zinc-800 bg-zinc-900 p-6">
-        <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Start Workout</h1>
-          <Link href="/plan" className="text-sm text-zinc-300 underline">
+    <main className='min-h-screen bg-zinc-950 px-6 py-10 text-zinc-100'>
+      <div className='mx-auto w-full max-w-3xl rounded-2xl border border-zinc-800 bg-zinc-900 p-6'>
+        <div className='mb-6 flex items-center justify-between'>
+          <h1 className='text-2xl font-bold'>Start Workout</h1>
+          <Link
+            href='/plan'
+            className='text-sm text-zinc-300 underline'
+          >
             Back to plan
           </Link>
         </div>
 
-        <p className="text-sm text-zinc-400">
+        <p className='text-sm text-zinc-400'>
           Progress: {doneSets}/{totalSets} sets completed
         </p>
 
-        <div className="mt-5 space-y-3">
+        <div className='mt-5 space-y-3'>
           {exerciseRows.map((exercise) => {
             const targetSets = exercise.target_sets ?? 1;
 
             return (
               <div
                 key={exercise.id}
-                className="rounded-lg border border-zinc-700 p-3"
+                className='rounded-lg border border-zinc-700 p-3'
               >
-                <p className="font-semibold">
+                <p className='font-semibold'>
                   {exercise.exercises?.name ?? "Exercise"}
                 </p>
 
-                <p className="text-sm text-zinc-400">
+                <p className='text-sm text-zinc-400'>
                   {completedSets[exercise.id] ?? 0} / {targetSets} sets
                 </p>
 
-                <div className="mt-2 flex items-center gap-2">
+                <div className='mt-2 flex items-center gap-2'>
                   <input
-                    type="number"
-                    placeholder="Weight lbs"
+                    type='number'
+                    placeholder='Weight lbs'
                     value={weights[exercise.id] ?? ""}
                     onChange={(event) =>
                       setWeights((prev) => ({
@@ -228,13 +235,13 @@ function WorkoutContent() {
                         [exercise.id]: event.target.value,
                       }))
                     }
-                    className="w-28 rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1"
+                    className='w-28 rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1'
                   />
 
                   <button
-                    type="button"
+                    type='button'
                     onClick={() => completeSet(exercise.id, targetSets)}
-                    className="rounded-md border border-[#CCFF00]/70 px-3 py-1 text-sm text-[#CCFF00]"
+                    className='rounded-md border border-[#CCFF00]/70 px-3 py-1 text-sm text-[#CCFF00]'
                   >
                     Complete Set
                   </button>
@@ -245,16 +252,16 @@ function WorkoutContent() {
         </div>
 
         <button
-          type="button"
+          type='button'
           onClick={finishWorkout}
           disabled={saving}
-          className="mt-6 w-full rounded-lg bg-violet-400 px-4 py-3 font-semibold text-zinc-950"
+          className='mt-6 w-full rounded-lg bg-violet-400 px-4 py-3 font-semibold text-zinc-950'
         >
           {saving ? "Saving..." : "Finish Workout Summary"}
         </button>
 
         {feedback ? (
-          <p className="mt-4 rounded-lg border border-[#E60000]/60 bg-[#E60000]/10 px-3 py-2 text-sm text-[#ffb3b3]">
+          <p className='mt-4 rounded-lg border border-[#E60000]/60 bg-[#E60000]/10 px-3 py-2 text-sm text-[#ffb3b3]'>
             {feedback}
           </p>
         ) : null}

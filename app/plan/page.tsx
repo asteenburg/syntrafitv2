@@ -195,7 +195,8 @@ function estimateDayMinutes(day: PlanDay) {
   const perExerciseTransitionSeconds = 45;
   const seconds = day.program_day_exercises.reduce((total, exercise) => {
     const sets = exercise.target_sets ?? 3;
-    const avgReps = ((exercise.target_reps_min ?? 8) + (exercise.target_reps_max ?? 12)) / 2;
+    const avgReps =
+      ((exercise.target_reps_min ?? 8) + (exercise.target_reps_max ?? 12)) / 2;
     const repSeconds = avgReps * 4;
     const workSeconds = sets * repSeconds;
     const restSeconds = Math.max(0, sets - 1) * (exercise.rest_seconds ?? 60);
@@ -245,13 +246,21 @@ export default function PlanPage() {
   const [feedback, setFeedback] = useState("");
   const [program, setProgram] = useState<Program | null>(null);
   const [completedDayIds, setCompletedDayIds] = useState<string[]>([]);
-  const [exerciseWeights, setExerciseWeights] = useState<Record<string, string>>({});
-  const [bodyweightOnly, setBodyweightOnly] = useState<Record<string, boolean>>({});
-  const [preferredSessionMinutes, setPreferredSessionMinutes] = useState<number | null>(null);
+  const [exerciseWeights, setExerciseWeights] = useState<
+    Record<string, string>
+  >({});
+  const [bodyweightOnly, setBodyweightOnly] = useState<Record<string, boolean>>(
+    {},
+  );
+  const [preferredSessionMinutes, setPreferredSessionMinutes] = useState<
+    number | null
+  >(null);
   const [dayDifficulty, setDayDifficulty] = useState<
     Record<string, "too_easy" | "just_right" | "too_hard">
   >({});
-  const [nextWeightSuggestion, setNextWeightSuggestion] = useState<Record<string, string>>({});
+  const [nextWeightSuggestion, setNextWeightSuggestion] = useState<
+    Record<string, string>
+  >({});
   const [swapOptions, setSwapOptions] = useState<ExerciseOption[]>([]);
   const [needsRegeneration, setNeedsRegeneration] = useState(false);
 
@@ -277,9 +286,11 @@ export default function PlanPage() {
       .eq("user_id", user.id)
       .maybeSingle();
 
-    const preferenceData = (prefsResult.data as
-      | { session_minutes?: number; disliked_exercises?: string[] | null }
-      | null) ?? null;
+    const preferenceData =
+      (prefsResult.data as {
+        session_minutes?: number;
+        disliked_exercises?: string[] | null;
+      } | null) ?? null;
 
     if (!prefsResult.error && preferenceData?.session_minutes) {
       setPreferredSessionMinutes(preferenceData.session_minutes);
@@ -290,7 +301,8 @@ export default function PlanPage() {
         day.program_day_exercises.some((exercise) =>
           disliked.some(
             (item) =>
-              exercise.exercises?.name?.toLowerCase().trim() === item.toLowerCase().trim(),
+              exercise.exercises?.name?.toLowerCase().trim() ===
+              item.toLowerCase().trim(),
           ),
         ),
       );
@@ -353,13 +365,17 @@ export default function PlanPage() {
       for (const exerciseId of allExerciseIds) {
         const recentLogs = await supabase
           .from("set_logs")
-          .select("weight_lbs, reps, workout_exercise_entries!inner(exercise_id, session_id)")
+          .select(
+            "weight_lbs, reps, workout_exercise_entries!inner(exercise_id, session_id)",
+          )
           .eq("workout_exercise_entries.exercise_id", exerciseId)
           .not("weight_lbs", "is", null)
           .order("completed_at", { ascending: false })
           .limit(5);
 
-        const recentLogRows = (recentLogs.data as Array<{ weight_lbs: number | null }> | null) ?? [];
+        const recentLogRows =
+          (recentLogs.data as Array<{ weight_lbs: number | null }> | null) ??
+          [];
         const lastWeight = Number(recentLogRows[0]?.weight_lbs ?? 0);
         if (lastWeight > 0) {
           suggestionMap[exerciseId] = `${lastWeight + 5} lbs next`;
@@ -386,7 +402,8 @@ export default function PlanPage() {
 
       if (!completionResult.error) {
         const completedRows =
-          (completionResult.data as Array<{ program_day_id: string }> | null) ?? [];
+          (completionResult.data as Array<{ program_day_id: string }> | null) ??
+          [];
         const completed = completedRows.map((row) => row.program_day_id);
         setCompletedDayIds(completed);
       }
@@ -421,7 +438,9 @@ export default function PlanPage() {
 
     const prefsResult = await supabase
       .from("user_setup_preferences")
-      .select("primary_goal, equipment_type, days_per_week, session_minutes, disliked_exercises")
+      .select(
+        "primary_goal, equipment_type, days_per_week, session_minutes, disliked_exercises",
+      )
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -433,17 +452,25 @@ export default function PlanPage() {
     }
 
     const preferences = prefsResult.data as SetupPreferenceRow;
-    const pool = buildExercisePool(preferences.primary_goal, preferences.equipment_type);
+    const pool = buildExercisePool(
+      preferences.primary_goal,
+      preferences.equipment_type,
+    );
     const filteredPool = pool.filter(
       (name) =>
-        !(
-          preferences.disliked_exercises ?? []
-        ).some((item) => item.toLowerCase().trim() === name.toLowerCase().trim()),
+        !(preferences.disliked_exercises ?? []).some(
+          (item) => item.toLowerCase().trim() === name.toLowerCase().trim(),
+        ),
     );
     const poolToUse = filteredPool.length >= 3 ? filteredPool : pool;
     const baseScheme = buildRepScheme(preferences.primary_goal);
-    const scheme = tuneSchemeForDuration(baseScheme, preferences.session_minutes);
-    const exercisesPerDay = getExerciseCountForDuration(preferences.session_minutes);
+    const scheme = tuneSchemeForDuration(
+      baseScheme,
+      preferences.session_minutes,
+    );
+    const exercisesPerDay = getExerciseCountForDuration(
+      preferences.session_minutes,
+    );
 
     const { data: createdProgram, error: programError } = await supabase
       .from("programs")
@@ -456,13 +483,19 @@ export default function PlanPage() {
       .single();
 
     if (programError || !createdProgram) {
-      setFeedback(`Could not create starter plan: ${programError?.message ?? "Unknown error"}`);
+      setFeedback(
+        `Could not create starter plan: ${programError?.message ?? "Unknown error"}`,
+      );
       setGenerating(false);
       return;
     }
     const createdProgramId = (createdProgram as { id: string }).id;
 
-    for (let dayIndex = 0; dayIndex < preferences.days_per_week; dayIndex += 1) {
+    for (
+      let dayIndex = 0;
+      dayIndex < preferences.days_per_week;
+      dayIndex += 1
+    ) {
       const { data: dayRow, error: dayError } = await supabase
         .from("program_days")
         .insert({
@@ -474,16 +507,21 @@ export default function PlanPage() {
         .single();
 
       if (dayError || !dayRow) {
-        setFeedback(`Could not create plan day ${dayIndex + 1}: ${dayError?.message ?? "Unknown error"}`);
+        setFeedback(
+          `Could not create plan day ${dayIndex + 1}: ${dayError?.message ?? "Unknown error"}`,
+        );
         setGenerating(false);
         return;
       }
       const dayRowId = (dayRow as { id: string }).id;
 
       const start = (dayIndex * 2) % pool.length;
-      const dayExerciseNames = Array.from({ length: exercisesPerDay }, (_, offset) => {
-        return poolToUse[(start + offset) % poolToUse.length];
-      });
+      const dayExerciseNames = Array.from(
+        { length: exercisesPerDay },
+        (_, offset) => {
+          return poolToUse[(start + offset) % poolToUse.length];
+        },
+      );
 
       for (let i = 0; i < dayExerciseNames.length; i += 1) {
         const exerciseName = dayExerciseNames[i];
@@ -500,7 +538,9 @@ export default function PlanPage() {
             .insert({
               name: exerciseName,
               category:
-                preferences.primary_goal === "Improve endurance" ? "cardio" : "strength",
+                preferences.primary_goal === "Improve endurance"
+                  ? "cardio"
+                  : "strength",
               equipment: preferences.equipment_type,
               is_custom: true,
               created_by: user.id,
@@ -517,19 +557,23 @@ export default function PlanPage() {
           return;
         }
 
-        const exerciseInsert = await supabase.from("program_day_exercises").insert({
-          program_day_id: dayRowId,
-          exercise_id: exerciseId,
-          order_index: i,
-          target_sets: scheme.sets,
-          target_reps_min: scheme.minReps,
-          target_reps_max: scheme.maxReps,
-          rest_seconds: scheme.rest,
-          notes: `${preferences.session_minutes}-minute session`,
-        } as never);
+        const exerciseInsert = await supabase
+          .from("program_day_exercises")
+          .insert({
+            program_day_id: dayRowId,
+            exercise_id: exerciseId,
+            order_index: i,
+            target_sets: scheme.sets,
+            target_reps_min: scheme.minReps,
+            target_reps_max: scheme.maxReps,
+            rest_seconds: scheme.rest,
+            notes: `${preferences.session_minutes}-minute session`,
+          } as never);
 
         if (exerciseInsert.error) {
-          setFeedback(`Could not add exercise to Day ${dayIndex + 1}: ${exerciseInsert.error.message}`);
+          setFeedback(
+            `Could not add exercise to Day ${dayIndex + 1}: ${exerciseInsert.error.message}`,
+          );
           setGenerating(false);
           return;
         }
@@ -609,7 +653,9 @@ export default function PlanPage() {
     };
 
     if (createdSession.error || !createdSession.data) {
-      setFeedback(`Completion saved, but could not create workout log: ${createdSession.error?.message}`);
+      setFeedback(
+        `Completion saved, but could not create workout log: ${createdSession.error?.message}`,
+      );
       setCompletedDayIds((prev) => [...prev, dayId]);
       return;
     }
@@ -631,13 +677,16 @@ export default function PlanPage() {
       };
 
       if (createdEntry.error || !createdEntry.data) {
-        setFeedback(`Workout log partially saved: ${createdEntry.error?.message ?? "Entry error"}`);
+        setFeedback(
+          `Workout log partially saved: ${createdEntry.error?.message ?? "Entry error"}`,
+        );
         continue;
       }
       const createdEntryId = (createdEntry.data as { id: string }).id;
 
       const setsCount = exercise.target_sets ?? 1;
-      const repsValue = exercise.target_reps_max ?? exercise.target_reps_min ?? 8;
+      const repsValue =
+        exercise.target_reps_max ?? exercise.target_reps_min ?? 8;
       const enteredWeight = Number(exerciseWeights[exercise.id] ?? 0);
       const useBodyweightOnly = bodyweightOnly[exercise.id] ?? false;
 
@@ -646,12 +695,15 @@ export default function PlanPage() {
           entry_id: createdEntryId,
           set_number: setNumber,
           reps: repsValue,
-          weight_lbs: useBodyweightOnly || enteredWeight <= 0 ? null : enteredWeight,
+          weight_lbs:
+            useBodyweightOnly || enteredWeight <= 0 ? null : enteredWeight,
           is_warmup: false,
         } as never);
 
         if (setInsert.error) {
-          setFeedback(`Workout log partially saved: ${setInsert.error.message}`);
+          setFeedback(
+            `Workout log partially saved: ${setInsert.error.message}`,
+          );
           break;
         }
       }
@@ -689,12 +741,14 @@ export default function PlanPage() {
     }
 
     await loadPlan();
-    setFeedback(`Exercise swapped for ${program.program_days.find((d) => d.id === dayId)?.name ?? "day"}.`);
+    setFeedback(
+      `Exercise swapped for ${program.program_days.find((d) => d.id === dayId)?.name ?? "day"}.`,
+    );
   };
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-white text-gray-900">
+      <main className='flex min-h-screen items-center justify-center bg-white text-gray-900'>
         <p>Loading your plan...</p>
       </main>
     );
@@ -704,57 +758,63 @@ export default function PlanPage() {
   const totalDays = program?.program_days.length ?? 0;
 
   return (
-    <main className="min-h-screen bg-white px-6 py-10 text-gray-900">
-      <div className="mx-auto w-full max-w-4xl rounded-2xl border border-gray-200 bg-white p-6 shadow-[0_-20px_26px_-22px_rgba(168,85,247,0.55)]">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+    <main className='min-h-screen bg-white px-6 py-10 text-gray-900'>
+      <div className='mx-auto w-full max-w-4xl rounded-2xl border border-gray-200 bg-white p-6 shadow-[0_-20px_26px_-22px_rgba(168,85,247,0.55)]'>
+        <div className='flex flex-wrap items-center justify-between gap-3'>
           <div>
-            <h1 className="text-3xl font-bold">My Plan</h1>
-            <p className="mt-2 text-sm text-gray-600">
+            <h1 className='text-3xl font-bold'>My Plan</h1>
+            <p className='mt-2 text-sm text-gray-600'>
               {program
                 ? `${completedCount} of ${totalDays} workout days completed this cycle.`
                 : "No plan yet. Generate your starter plan based on setup."}
             </p>
             {preferredSessionMinutes ? (
-              <p className="mt-1 text-xs text-gray-500">
+              <p className='mt-1 text-xs text-gray-500'>
                 Preferred session duration: {preferredSessionMinutes} minutes
               </p>
             ) : null}
             {needsRegeneration ? (
-              <p className="mt-1 text-xs text-[#ffb3b3]">
+              <p className='mt-1 text-xs text-[#ffb3b3]'>
                 Your preferences changed. Regenerate plan to apply updates.
               </p>
             ) : null}
           </div>
-          <div className="flex items-center gap-2">
+          <div className='flex items-center gap-2'>
             <Link
-              href="/setup"
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:border-gray-400"
+              href='/setup'
+              className='rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:border-gray-400'
             >
               Setup
             </Link>
             <Link
-              href="/preferences"
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:border-gray-400"
+              href='/preferences'
+              className='rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:border-gray-400'
             >
               Preferences
             </Link>
             <button
-              type="button"
+              type='button'
               onClick={generatePlan}
               disabled={generating}
-              className="rounded-lg bg-violet-400 px-4 py-2 text-sm font-semibold text-zinc-950 transition hover:bg-violet-300 disabled:cursor-not-allowed disabled:opacity-70"
+              className='rounded-lg bg-violet-400 px-4 py-2 text-sm font-semibold text-zinc-950 transition hover:bg-violet-300 disabled:cursor-not-allowed disabled:opacity-70'
             >
-              {generating ? "Generating..." : program ? "Regenerate Plan" : "Generate Plan"}
+              {generating
+                ? "Generating..."
+                : program
+                  ? "Regenerate Plan"
+                  : "Generate Plan"}
             </button>
           </div>
         </div>
 
         {!program ? (
-          <div className="mt-8 rounded-xl border border-dashed border-zinc-700 bg-zinc-950 p-6 text-center">
-            <p className="text-zinc-300">No starter plan found for your account yet.</p>
+          <div className='mt-8 rounded-xl border border-dashed border-zinc-700 bg-zinc-950 p-6 text-center'>
+            <p className='text-zinc-300'>
+              No starter plan found for your account yet.
+            </p>
           </div>
         ) : (
-          <div className="mt-8 space-y-4">
+          <div className='mt-8 space-y-4'>
             {program.program_days
               .slice()
               .sort((a, b) => a.day_index - b.day_index)
@@ -774,23 +834,23 @@ export default function PlanPage() {
                         : "border-zinc-700 bg-zinc-950 text-zinc-500"
                     }`}
                   >
-                    <div className="mb-3 flex items-center justify-between gap-3">
+                    <div className='mb-3 flex items-center justify-between gap-3'>
                       <div>
-                        <h2 className="text-lg font-semibold">
+                        <h2 className='text-lg font-semibold'>
                           {day.name ?? `Day ${day.day_index + 1}`}
                         </h2>
-                        <p className="mt-1 text-xs text-zinc-400">
+                        <p className='mt-1 text-xs text-zinc-400'>
                           Estimated duration: {estimatedMinutes} min
                         </p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className='flex items-center gap-2'>
                         <span
                           className={`rounded-full border px-2 py-1 text-xs font-medium ${durationBadge.className}`}
                         >
                           {durationBadge.label}
                         </span>
                         <button
-                          type="button"
+                          type='button'
                           onClick={() => void toggleCompleteDay(day.id)}
                           className={`rounded-md px-3 py-2 text-sm font-medium transition ${
                             completed
@@ -802,14 +862,16 @@ export default function PlanPage() {
                         </button>
                         <Link
                           href={`/workout?dayId=${day.id}`}
-                          className="rounded-md border border-zinc-600 px-3 py-2 text-sm font-medium text-zinc-200 hover:border-zinc-400"
+                          className='rounded-md border border-zinc-600 px-3 py-2 text-sm font-medium text-zinc-200 hover:border-zinc-400'
                         >
                           Start Workout
                         </Link>
                       </div>
                     </div>
-                    <div className="mb-3 flex items-center gap-2 text-xs">
-                      <span className="text-zinc-400">How did this session feel?</span>
+                    <div className='mb-3 flex items-center gap-2 text-xs'>
+                      <span className='text-zinc-400'>
+                        How did this session feel?
+                      </span>
                       {(
                         [
                           ["too_easy", "Too easy"],
@@ -819,7 +881,7 @@ export default function PlanPage() {
                       ).map(([value, label]) => (
                         <button
                           key={value}
-                          type="button"
+                          type='button'
                           onClick={() =>
                             setDayDifficulty((prev) => ({
                               ...prev,
@@ -836,33 +898,35 @@ export default function PlanPage() {
                         </button>
                       ))}
                     </div>
-                    <ul className="space-y-2">
+                    <ul className='space-y-2'>
                       {day.program_day_exercises
                         .slice()
                         .sort((a, b) => a.order_index - b.order_index)
                         .map((exercise) => (
                           <li
                             key={exercise.id}
-                            className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2"
+                            className='rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2'
                           >
-                            <p className="font-medium">
+                            <p className='font-medium'>
                               {exercise.exercises?.name ?? "Exercise"}
                             </p>
-                            <p className="mt-1 text-sm text-zinc-400">
-                              {exercise.target_sets ?? 0} sets x {exercise.target_reps_min ?? 0}-
+                            <p className='mt-1 text-sm text-zinc-400'>
+                              {exercise.target_sets ?? 0} sets x{" "}
+                              {exercise.target_reps_min ?? 0}-
                               {exercise.target_reps_max ?? 0} reps, rest{" "}
                               {exercise.rest_seconds ?? 0}s
                             </p>
                             {nextWeightSuggestion[exercise.exercise_id] ? (
-                              <p className="mt-1 text-xs text-[#CCFF00]">
-                                Suggested progression: {nextWeightSuggestion[exercise.exercise_id]}
+                              <p className='mt-1 text-xs text-[#CCFF00]'>
+                                Suggested progression:{" "}
+                                {nextWeightSuggestion[exercise.exercise_id]}
                               </p>
                             ) : null}
-                            <div className="mt-3 flex flex-wrap items-center gap-3">
-                              <label className="flex items-center gap-2 text-sm text-zinc-300">
+                            <div className='mt-3 flex flex-wrap items-center gap-3'>
+                              <label className='flex items-center gap-2 text-sm text-zinc-300'>
                                 <span>Weight (lbs)</span>
                                 <input
-                                  type="number"
+                                  type='number'
                                   min={0}
                                   step={2.5}
                                   value={exerciseWeights[exercise.id] ?? ""}
@@ -873,12 +937,12 @@ export default function PlanPage() {
                                     }))
                                   }
                                   disabled={bodyweightOnly[exercise.id]}
-                                  className="w-24 rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1 text-zinc-100 disabled:opacity-50"
+                                  className='w-24 rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1 text-zinc-100 disabled:opacity-50'
                                 />
                               </label>
-                              <label className="flex items-center gap-2 text-sm text-zinc-300">
+                              <label className='flex items-center gap-2 text-sm text-zinc-300'>
                                 <input
-                                  type="checkbox"
+                                  type='checkbox'
                                   checked={bodyweightOnly[exercise.id] ?? false}
                                   onChange={(event) =>
                                     setBodyweightOnly((prev) => ({
@@ -886,28 +950,38 @@ export default function PlanPage() {
                                       [exercise.id]: event.target.checked,
                                     }))
                                   }
-                                  className="h-4 w-4 accent-violet-400"
+                                  className='h-4 w-4 accent-violet-400'
                                 />
                                 Bodyweight only
                               </label>
-                              <label className="flex items-center gap-2 text-sm text-zinc-300">
+                              <label className='flex items-center gap-2 text-sm text-zinc-300'>
                                 <span>Swap</span>
                                 <select
-                                  defaultValue=""
+                                  defaultValue=''
                                   onChange={(event) => {
                                     if (!event.target.value) {
                                       return;
                                     }
-                                    void swapExercise(exercise.id, event.target.value, day.id);
+                                    void swapExercise(
+                                      exercise.id,
+                                      event.target.value,
+                                      day.id,
+                                    );
                                   }}
-                                  className="rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1 text-zinc-100"
+                                  className='rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1 text-zinc-100'
                                 >
-                                  <option value="">Pick exercise</option>
+                                  <option value=''>Pick exercise</option>
                                   {swapOptions
-                                    .filter((option) => option.id !== exercise.exercise_id)
+                                    .filter(
+                                      (option) =>
+                                        option.id !== exercise.exercise_id,
+                                    )
                                     .slice(0, 30)
                                     .map((option) => (
-                                      <option key={option.id} value={option.id}>
+                                      <option
+                                        key={option.id}
+                                        value={option.id}
+                                      >
                                         {option.name}
                                       </option>
                                     ))}
@@ -924,7 +998,7 @@ export default function PlanPage() {
         )}
 
         {feedback ? (
-          <p className="mt-4 rounded-lg border border-[#E60000]/60 bg-[#E60000]/10 px-3 py-2 text-sm text-[#ffb3b3]">
+          <p className='mt-4 rounded-lg border border-[#CCFF00]/60 bg-[#CCFF00]/10 px-3 py-2 text-sm text-zinc-500'>
             {feedback}
           </p>
         ) : null}

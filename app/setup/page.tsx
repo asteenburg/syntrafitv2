@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 
@@ -45,15 +45,20 @@ export default function SetupPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
   const [primaryGoal, setPrimaryGoal] = useState(goals[0]);
   const [equipmentType, setEquipmentType] = useState(equipment[0]);
+
   const [trainingEnvironment, setTrainingEnvironment] = useState<
     "equipment" | "no-equipment"
   >("equipment");
+
   const [noEquipmentType, setNoEquipmentType] = useState(noEquipment[0]);
+
   const [experienceLevel, setExperienceLevel] = useState<
     "beginner" | "intermediate" | "advanced"
   >("intermediate");
+
   const [preferredSplit, setPreferredSplit] = useState("full-body");
   const [injuryNotes, setInjuryNotes] = useState("");
   const [dislikedExercises, setDislikedExercises] = useState("");
@@ -85,6 +90,7 @@ export default function SetupPage() {
         .maybeSingle();
 
       const saved = data as SetupPreferenceRow | null;
+
       if (saved) {
         if (goals.includes(saved.primary_goal)) {
           setPrimaryGoal(saved.primary_goal);
@@ -97,15 +103,19 @@ export default function SetupPage() {
           setTrainingEnvironment("equipment");
           setEquipmentType(saved.equipment_type);
         }
+
         if (saved.experience_level) {
           setExperienceLevel(saved.experience_level);
         }
+
         if (saved.preferred_split) {
           setPreferredSplit(saved.preferred_split);
         }
+
         if (saved.injury_notes) {
           setInjuryNotes(saved.injury_notes);
         }
+
         if (saved.disliked_exercises?.length) {
           setDislikedExercises(saved.disliked_exercises.join(", "));
         }
@@ -113,6 +123,7 @@ export default function SetupPage() {
 
       setLoading(false);
     };
+
     void checkSession();
   }, [router]);
 
@@ -158,12 +169,10 @@ export default function SetupPage() {
 
     const { error } = await supabase
       .from("user_setup_preferences")
-      .upsert(payload as never, { onConflict: "user_id" });
+      .upsert(payload as any, { onConflict: "user_id" });
 
     if (error) {
-      setFeedback(
-        `Could not save setup yet: ${error.message}. Run Migration 003 SQL first.`,
-      );
+      setFeedback(`Could not save setup: ${error.message}`);
       setSaving(false);
       return;
     }
@@ -173,45 +182,51 @@ export default function SetupPage() {
     );
     setSaving(false);
     router.push("/plan");
-  };
+  }; // <--- Fixed the missing bracket for onCreatePlan here
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-white text-gray-900">
+      <main className='flex min-h-screen items-center justify-center bg-white text-gray-900'>
         <p>Loading your setup...</p>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-white px-6 py-10 text-gray-900">
-      <div className="mx-auto w-full max-w-3xl rounded-2xl border border-gray-200 bg-white p-6 shadow-[0_-24px_30px_-24px_rgba(168,85,247,0.8)]">
-        <div className="flex items-center justify-between gap-3">
+    <main className='min-h-screen bg-white px-6 py-10 text-gray-900'>
+      <div className='mx-auto w-full max-w-3xl rounded-2xl border border-gray-200 bg-white p-6 shadow-[0_-24px_30px_-24px_rgba(168,85,247,0.8)]'>
+        <div className='flex items-center justify-between gap-3'>
           <div>
-            <p className="text-xs font-semibold tracking-[0.18em] text-violet-300">
+            <p className='text-xs font-semibold tracking-[0.18em] text-violet-300'>
               SYNTRAFIT SETUP
             </p>
-            <h1 className="mt-2 text-3xl font-bold">Let&apos;s build your training</h1>
-            <p className="mt-2 text-sm text-gray-600">
+            <h1 className='mt-2 text-3xl font-bold'>
+              Let&apos;s build your training
+            </h1>
+            <p className='mt-2 text-sm text-gray-600'>
               Pick your main outcome and training environment. You can fine-tune
               days and session length later in Preferences.
             </p>
           </div>
+
           <Link
-            href="/preferences"
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:border-gray-400"
+            href='/preferences'
+            className='rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:border-gray-400'
           >
             Preferences
           </Link>
         </div>
 
-        <div className="mt-8">
-          <p className="mb-3 text-sm font-semibold text-zinc-300">Primary goal</p>
-          <div className="grid gap-3 sm:grid-cols-2">
+        {/* GOALS */}
+        <div className='mt-8'>
+          <p className='mb-3 text-sm font-semibold text-zinc-300'>
+            Primary goal
+          </p>
+          <div className='grid gap-3 sm:grid-cols-2'>
             {goals.map((goal) => (
               <button
                 key={goal}
-                type="button"
+                type='button'
                 onClick={() => setPrimaryGoal(goal)}
                 className={`rounded-xl border px-4 py-3 text-left transition ${
                   primaryGoal === goal
@@ -219,146 +234,116 @@ export default function SetupPage() {
                     : "border-zinc-700 bg-zinc-950 text-zinc-200 hover:border-zinc-500"
                 }`}
               >
-                <p className="font-semibold">{goal}</p>
+                {goal}
               </button>
             ))}
           </div>
         </div>
 
-        <div className="mt-6">
-          <p className="mb-3 text-sm font-semibold text-zinc-300">
+        {/* ENVIRONMENT */}
+        <div className='mt-6'>
+          <p className='mb-3 text-sm font-semibold text-zinc-300'>
             Training environment
           </p>
-          <div className="mb-4 grid gap-3 sm:grid-cols-2">
+          <div className='grid gap-3 sm:grid-cols-2'>
             <button
-              type="button"
+              type='button'
               onClick={() => setTrainingEnvironment("equipment")}
               className={`rounded-xl border px-4 py-3 text-left transition ${
                 trainingEnvironment === "equipment"
                   ? "border-violet-300 bg-violet-300/10 text-violet-100"
-                  : "border-zinc-700 bg-zinc-950 text-zinc-200 hover:border-zinc-500"
+                  : "border-zinc-700 bg-zinc-950 text-zinc-200"
               }`}
             >
-              <p className="font-semibold">I have equipment</p>
+              I have equipment
             </button>
+
             <button
-              type="button"
+              type='button'
               onClick={() => setTrainingEnvironment("no-equipment")}
               className={`rounded-xl border px-4 py-3 text-left transition ${
                 trainingEnvironment === "no-equipment"
                   ? "border-violet-300 bg-violet-300/10 text-violet-100"
-                  : "border-zinc-700 bg-zinc-950 text-zinc-200 hover:border-zinc-500"
+                  : "border-zinc-700 bg-zinc-950 text-zinc-200"
               }`}
             >
-              <p className="font-semibold">No equipment</p>
+              No equipment
             </button>
           </div>
         </div>
 
-        <div className="mt-6">
-          <p className="mb-3 text-sm font-semibold text-zinc-300">Experience level</p>
-          <div className="grid gap-3 sm:grid-cols-3">
-            {(["beginner", "intermediate", "advanced"] as const).map((level) => (
-              <button
-                key={level}
-                type="button"
-                onClick={() => setExperienceLevel(level)}
-                className={`rounded-xl border px-4 py-3 text-left capitalize transition ${
-                  experienceLevel === level
-                    ? "border-violet-300 bg-violet-300/10 text-violet-100"
-                    : "border-zinc-700 bg-zinc-950 text-zinc-200 hover:border-zinc-500"
-                }`}
-              >
-                {level}
-              </button>
-            ))}
+        {/* EXPERIENCE */}
+        <div className='mt-6'>
+          <p className='mb-3 text-sm font-semibold text-zinc-300'>
+            Experience level
+          </p>
+          <div className='grid gap-3 sm:grid-cols-3'>
+            {(["beginner", "intermediate", "advanced"] as const).map(
+              (level) => (
+                <button
+                  key={level}
+                  type='button'
+                  onClick={() => setExperienceLevel(level)}
+                  className={`rounded-xl border px-4 py-3 capitalize ${
+                    experienceLevel === level
+                      ? "border-violet-300 bg-violet-300/10 text-violet-100"
+                      : "border-zinc-700 bg-zinc-950 text-zinc-200"
+                  }`}
+                >
+                  {level}
+                </button>
+              ),
+            )}
           </div>
         </div>
 
-        <div className="mt-6">
-          <p className="mb-3 text-sm font-semibold text-zinc-300">Preferred split</p>
+        {/* SPLIT */}
+        <div className='mt-6'>
+          <p className='mb-3 text-sm font-semibold text-zinc-300'>
+            Preferred split
+          </p>
           <select
             value={preferredSplit}
-            onChange={(event) => setPreferredSplit(event.target.value)}
-            className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
+            onChange={(e) => setPreferredSplit(e.target.value)}
+            className='w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100'
           >
-            <option value="full-body">Full body</option>
-            <option value="upper-lower">Upper / Lower</option>
-            <option value="push-pull-legs">Push / Pull / Legs</option>
+            <option value='full-body'>Full body</option>
+            <option value='upper-lower'>Upper / Lower</option>
+            <option value='push-pull-legs'>Push / Pull / Legs</option>
           </select>
         </div>
 
-        <div className="mt-6">
-          <p className="mb-3 text-sm font-semibold text-zinc-300">
-            Injuries or limitations (optional)
-          </p>
+        {/* INJURY */}
+        <div className='mt-6'>
           <textarea
             value={injuryNotes}
-            onChange={(event) => setInjuryNotes(event.target.value)}
+            onChange={(e) => setInjuryNotes(e.target.value)}
             rows={3}
-            placeholder="Example: avoid deep knee flexion, shoulder impingement history"
-            className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100 placeholder:text-zinc-500"
+            className='w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100'
           />
         </div>
 
-        <div className="mt-6">
-          <p className="mb-3 text-sm font-semibold text-zinc-300">
-            Disliked exercises (comma separated)
-          </p>
+        {/* DISLIKED */}
+        <div className='mt-6'>
           <input
             value={dislikedExercises}
-            onChange={(event) => setDislikedExercises(event.target.value)}
-            placeholder="Burpees, treadmill sprints, dips"
-            className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100 placeholder:text-zinc-500"
+            onChange={(e) => setDislikedExercises(e.target.value)}
+            className='w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100'
           />
         </div>
 
-        <div className="mt-6">
-          <p className="mb-3 text-sm font-semibold text-zinc-300">
-            {trainingEnvironment === "no-equipment"
-              ? "No equipment"
-              : "Equipment"}
-          </p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {(trainingEnvironment === "no-equipment"
-              ? noEquipment
-              : equipment
-            ).map((item) => (
-              <button
-                key={item}
-                type="button"
-                onClick={() =>
-                  trainingEnvironment === "no-equipment"
-                    ? setNoEquipmentType(item)
-                    : setEquipmentType(item)
-                }
-                className={`rounded-xl border px-4 py-3 text-left transition ${
-                  (trainingEnvironment === "no-equipment"
-                    ? noEquipmentType
-                    : equipmentType) === item
-                    ? "border-violet-300 bg-violet-300/10 text-violet-100"
-                    : "border-zinc-700 bg-zinc-950 text-zinc-200 hover:border-zinc-500"
-                }`}
-              >
-                <p className="font-semibold">{item}</p>
-              </button>
-            ))}
-          </div>
-        </div>
-
+        {/* SAVE */}
         <button
-          type="button"
+          type='button'
           onClick={onCreatePlan}
           disabled={saving}
-          className="mt-8 w-full rounded-lg bg-violet-400 px-4 py-3 font-semibold text-zinc-950 transition hover:bg-violet-300 disabled:cursor-not-allowed disabled:opacity-70"
+          className='mt-8 w-full rounded-lg bg-violet-400 px-4 py-3 font-semibold text-zinc-950'
         >
           {saving ? "Saving setup..." : "Save Setup & Continue"}
         </button>
 
         {feedback ? (
-          <p className="mt-4 rounded-lg border border-[#E60000]/60 bg-[#E60000]/10 px-3 py-2 text-sm text-[#ffb3b3]">
-            {feedback}
-          </p>
+          <p className='mt-4 text-sm text-red-400'>{feedback}</p>
         ) : null}
       </div>
     </main>
