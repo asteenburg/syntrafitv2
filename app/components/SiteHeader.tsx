@@ -141,7 +141,7 @@ export default function SiteHeader() {
                   <button
                     onClick={handleSignOut}
                     disabled={isSigningOut}
-                    className="w-full py-4 text-center font-bold text-[#e60000]  transition active:scale-[0.98]"
+                    className="w-full py-4 text-center font-bold text-[#e60000] transition active:scale-[0.98]"
                   >
                     {isSigningOut ? "Signing Out..." : "Sign Out"}
                   </button>
