@@ -1,318 +1,336 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { getSupabaseClient } from "@/lib/supabaseClient";
-
-type SetupPreferenceRow = {
-  primary_goal: string;
-  equipment_type: string;
-  days_per_week: number;
-  session_minutes: number;
-  experience_level: "beginner" | "intermediate" | "advanced";
-  preferred_split: string;
-  injury_notes: string | null;
-  disliked_exercises: string[] | null;
-};
 
 export default function PreferencesPage() {
   const router = useRouter();
-
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-
-  const [daysPerWeek, setDaysPerWeek] = useState(4);
-  const [sessionMinutes, setSessionMinutes] = useState(45);
-
-  const [experienceLevel, setExperienceLevel] = useState<
-    "beginner" | "intermediate" | "advanced"
-  >("intermediate");
-
-  const [preferredSplit, setPreferredSplit] = useState("full-body");
-  const [injuryNotes, setInjuryNotes] = useState("");
-  const [dislikedExercises, setDislikedExercises] = useState<string[]>([]);
-
   const [feedback, setFeedback] = useState("");
 
+  // --- CORE PREFERENCES STATE ---
+  const [primaryGoal, setPrimaryGoal] = useState("Build muscle");
+  const [equipmentType, setEquipmentType] = useState("Commercial Gym");
+  const [daysPerWeek, setDaysPerWeek] = useState(3);
+  const [sessionMinutes, setSessionMinutes] = useState(45);
+  const [preferredSplit, setPreferredSplit] = useState("Full Body");
+  const [dislikedExercises, setDislikedExercises] = useState<string[]>([]);
+  const [newDislike, setNewDislike] = useState("");
+
+  // PILL OPTIONS
+  const standardOptions = [
+    "Build muscle",
+    "Increase strength",
+    "Lose fat",
+    "Improve endurance",
+  ];
+  const targetedOptions = [
+    "only biceps",
+    "only triceps",
+    "only quads",
+    "only legs",
+    "only chest",
+    "only back",
+    "only calves",
+    "only hiit",
+    "only full body",
+  ];
+
+  // --- LOADING LOGIC ---
   useEffect(() => {
-    const loadPreferences = async () => {
+    const loadData = async () => {
       const supabase = getSupabaseClient();
-      if (!supabase) {
-        router.replace("/auth");
-        return;
-      }
+      if (!supabase) return;
 
       const {
         data: { user },
       } = await supabase.auth.getUser();
-
       if (!user) {
         router.replace("/auth");
         return;
       }
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("user_setup_preferences")
-        .select(
-          "days_per_week, session_minutes, experience_level, preferred_split, injury_notes, disliked_exercises",
-        )
+        .select("*")
         .eq("user_id", user.id)
         .maybeSingle();
 
-      const saved = data as any;
-
-      if (saved) {
-        setDaysPerWeek(saved.days_per_week);
-        setSessionMinutes(saved.session_minutes);
-
-        if (saved.experience_level) {
-          const level = Array.isArray(saved.experience_level)
-            ? saved.experience_level[0]
-            : saved.experience_level;
-          setExperienceLevel(level);
-        }
-
-        if (saved.preferred_split) {
-          const split = Array.isArray(saved.preferred_split)
-            ? saved.preferred_split[0]
-            : saved.preferred_split;
-          setPreferredSplit(split);
-        }
-
-        if (saved.injury_notes) setInjuryNotes(saved.injury_notes);
-        setDislikedExercises(saved.disliked_exercises ?? []);
+      if (data && !error) {
+        const casted = data as any;
+        setPrimaryGoal(casted.primary_goal || "Build muscle");
+        setEquipmentType(casted.equipment_type || "Commercial Gym");
+        setDaysPerWeek(casted.days_per_week || 3);
+        setSessionMinutes(casted.session_minutes || 45);
+        setPreferredSplit(casted.preferred_split || "Full Body");
+        setDislikedExercises(casted.disliked_exercises || []);
       }
-
       setLoading(false);
     };
-
-    void loadPreferences();
+    void loadData();
   }, [router]);
 
-  const onSave = async () => {
-    const supabase = getSupabaseClient();
-    if (!supabase) {
-      setFeedback("Supabase configuration missing.");
-      return;
+  // --- HANDLERS ---
+  const addDislike = () => {
+    if (newDislike.trim() && !dislikedExercises.includes(newDislike.trim())) {
+      setDislikedExercises([...dislikedExercises, newDislike.trim()]);
+      setNewDislike("");
     }
+  };
 
+  const removeDislike = (index: number) => {
+    setDislikedExercises(dislikedExercises.filter((_, i) => i !== index));
+  };
+
+  const handleSave = async () => {
     setSaving(true);
     setFeedback("");
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
 
     const {
       data: { user },
     } = await supabase.auth.getUser();
+    if (!user) return;
 
-    if (!user) {
-      setSaving(false);
-      router.replace("/auth");
-      return;
-    }
-
-    const { data: current } = await supabase
-      .from("user_setup_preferences")
-      .select("primary_goal, equipment_type")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
+    // "Nuclear" fix: Cast the table selector to any to avoid the 'never' type mismatch
     const { error } = await (
       supabase.from("user_setup_preferences") as any
     ).upsert(
       {
         user_id: user.id,
-        primary_goal: (current as any)?.primary_goal ?? "Build muscle",
-        equipment_type: (current as any)?.equipment_type ?? "Full gym",
+        primary_goal: primaryGoal,
+        equipment_type: equipmentType,
         days_per_week: daysPerWeek,
         session_minutes: sessionMinutes,
-        experience_level: experienceLevel,
         preferred_split: preferredSplit,
-        injury_notes: injuryNotes.trim() || null,
         disliked_exercises: dislikedExercises,
+        updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id" },
     );
 
     if (error) {
-      setFeedback(`Error: ${error.message}`);
+      setFeedback(`Sync Error: ${error.message}`);
+      setSaving(false);
     } else {
-      setFeedback("Preferences calibrated successfully.");
+      // Redirect with recalibrate param so plan page auto-regenerates
+      router.push("/plan?recalibrate=true");
     }
-    setSaving(false);
   };
-
-  // --- STYLING CONSTANTS ---
-  const inputBg =
-    "bg-zinc-900/50 border-zinc-800 text-zinc-100 placeholder:text-zinc-600 focus:border-violet-500/50 focus:ring-violet-500/20";
-  const labelText =
-    "text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-2 block";
 
   if (loading) {
     return (
-      <main className='flex min-h-screen items-center justify-center bg-zinc-950 text-violet-400'>
-        <div className='flex flex-col items-center gap-4'>
-          <div className='h-10 w-10 animate-spin rounded-full border-2 border-violet-500 border-t-transparent' />
-          <p className='font-mono text-xs tracking-widest uppercase'>
-            Initializing Interface...
-          </p>
-        </div>
+      <main className='flex min-h-screen items-center justify-center bg-zinc-950 font-mono text-[10px] uppercase tracking-[0.3em] text-violet-500'>
+        Syncing Neural Profile...
       </main>
     );
   }
 
   return (
-    <main className='min-h-screen bg-zinc-950 px-6 py-12 text-zinc-100 selection:bg-violet-500/30'>
-      {/* Background Glow Effect */}
+    <main className='min-h-screen bg-zinc-950 px-6 py-12 text-zinc-100'>
+      {/* Background Ambient Glow */}
       <div className='fixed inset-0 overflow-hidden pointer-events-none'>
-        <div className='absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-violet-900/20 blur-[120px] rounded-full' />
+        <div className='absolute -top-[5%] -right-[5%] w-[35%] h-[35%] bg-violet-900/10 blur-[100px] rounded-full' />
       </div>
-
-      <div className='relative mx-auto w-full max-w-2xl rounded-3xl border border-zinc-800 bg-zinc-900/40 p-8 sm:p-12 backdrop-blur-xl shadow-2xl shadow-black'>
-        {/* Header */}
-        <div className='flex flex-col sm:flex-row sm:items-end justify-between gap-6 pb-10 border-b border-zinc-800/50'>
+      <div className='relative mx-auto w-full max-w-2xl rounded-3xl border border-zinc-800 bg-zinc-900/40 p-8 backdrop-blur-xl shadow-2xl'>
+        <header className='flex items-center justify-between border-b border-zinc-800/50 pb-8 mb-10'>
           <div>
-            <div className='flex items-center gap-2 mb-2'>
-              <div className='h-1 w-8 bg-violet-500' />
-              <p className='text-[10px] font-black tracking-[0.3em] text-violet-400 uppercase'>
-                System Config
-              </p>
-            </div>
-            <h1 className='text-4xl font-extrabold tracking-tighter text-white'>
+            <p className='text-[10px] font-black tracking-[0.3em] text-violet-400 uppercase mb-2'>
+              Protocol Architecture
+            </p>
+            <h1 className='text-4xl font-extrabold tracking-tighter'>
               Preferences
             </h1>
-            <p className='mt-2 text-sm text-zinc-500 font-medium'>
-              Fine-tune the algorithm for your workout pacing.
-            </p>
           </div>
           <Link
-            href='/setup'
-            className='inline-flex items-center justify-center rounded-xl border border-zinc-800 px-4 py-2.5 text-xs font-bold text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all active:scale-95'
+            href='/plan'
+            className='text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-white'
           >
-            ← Back to setup
+            ESC
           </Link>
-        </div>
+        </header>
 
-        <div className='mt-10 space-y-8'>
-          {/* SLIDERS */}
-          <div className='grid gap-8 sm:grid-cols-2'>
-            <label className='block'>
-              <span className={labelText}>
-                Days per week:{" "}
-                <span className='text-violet-400 font-mono text-sm ml-1'>
-                  {daysPerWeek}
-                </span>
-              </span>
+        <div className='space-y-10'>
+          {/* PRIMARY GOAL PILLS */}
+          <section className='space-y-4'>
+            <label className='text-[10px] font-black uppercase tracking-widest text-zinc-500'>
+              Standard Protocols
+            </label>
+            <div className='flex flex-wrap gap-2'>
+              {standardOptions.map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => setPrimaryGoal(opt)}
+                  className={`rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all border ${
+                    primaryGoal === opt
+                      ? "bg-violet-600 border-violet-500 text-white shadow-lg shadow-violet-900/40"
+                      : "bg-zinc-950 border-zinc-800 text-zinc-500 hover:border-zinc-600"
+                  }`}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* TARGETED PILLS */}
+          <section className='space-y-4'>
+            <label className='text-[10px] font-black uppercase tracking-widest text-zinc-500'>
+              Isolated Targeting
+            </label>
+            <div className='flex flex-wrap gap-2'>
+              {targetedOptions.map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => setPrimaryGoal(opt)}
+                  className={`rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all border ${
+                    primaryGoal === opt
+                      ? "bg-sky-600 border-sky-500 text-white shadow-lg shadow-sky-900/40"
+                      : "bg-zinc-950 border-zinc-800 text-zinc-500 hover:border-zinc-600"
+                  }`}
+                >
+                  {opt.replace("only ", "")}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* ARCHITECTURE (SPLIT) */}
+          <section className='space-y-4'>
+            <label className='text-[10px] font-black uppercase tracking-widest text-zinc-500'>
+              Program Architecture
+            </label>
+            <div className='grid grid-cols-3 gap-2'>
+              {["Full Body", "PPL", "Upper/Lower"].map((split) => (
+                <button
+                  key={split}
+                  type='button'
+                  onClick={() => setPreferredSplit(split)}
+                  className={`rounded-xl border p-3 text-[10px] font-black uppercase tracking-widest transition-all ${
+                    preferredSplit === split
+                      ? "border-violet-500/50 bg-violet-500/10 text-violet-400"
+                      : "border-zinc-800 bg-zinc-950 text-zinc-600 hover:border-zinc-700"
+                  }`}
+                >
+                  {split}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* EQUIPMENT GRID */}
+          <section className='space-y-4'>
+            <label className='text-[10px] font-black uppercase tracking-widest text-zinc-500'>
+              Hardware Environment
+            </label>
+            <div className='grid grid-cols-2 gap-3'>
+              {[
+                "Commercial Gym",
+                "Home Gym",
+                "Bodyweight",
+                "Dumbbells Only",
+              ].map((type) => (
+                <button
+                  key={type}
+                  type='button'
+                  onClick={() => setEquipmentType(type)}
+                  className={`rounded-xl border p-4 text-xs font-bold transition-all ${
+                    equipmentType === type
+                      ? "border-sky-500/50 bg-sky-500/10 text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.1)]"
+                      : "border-zinc-800 bg-zinc-950 text-zinc-500 hover:border-zinc-700"
+                  }`}
+                >
+                  {type}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* FREQUENCY & DURATION */}
+          <div className='grid grid-cols-2 gap-6'>
+            <section className='space-y-4'>
+              <label className='text-[10px] font-black uppercase tracking-widest text-zinc-500'>
+                Units Per Week
+              </label>
               <input
-                type='range'
-                min={2}
-                max={7}
+                type='number'
+                min='1'
+                max='7'
                 value={daysPerWeek}
                 onChange={(e) => setDaysPerWeek(Number(e.target.value))}
-                className='w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-violet-500'
+                className='w-full rounded-xl border border-zinc-800 bg-zinc-950 p-4 text-sm font-bold text-white outline-none focus:border-violet-500/50'
               />
-            </label>
-
-            <label className='block'>
-              <span className={labelText}>
-                Session:{" "}
-                <span className='text-violet-400 font-mono text-sm ml-1'>
-                  {sessionMinutes}m
-                </span>
-              </span>
+            </section>
+            <section className='space-y-4'>
+              <label className='text-[10px] font-black uppercase tracking-widest text-zinc-500'>
+                Session Cap (Min)
+              </label>
               <input
-                type='range'
-                min={20}
-                max={120}
-                step={5}
+                type='number'
+                step='15'
                 value={sessionMinutes}
                 onChange={(e) => setSessionMinutes(Number(e.target.value))}
-                className='w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-violet-500'
+                className='w-full rounded-xl border border-zinc-800 bg-zinc-950 p-4 text-sm font-bold text-white outline-none focus:border-violet-500/50'
               />
-            </label>
+            </section>
           </div>
 
-          {/* SELECTS */}
-          <div className='grid gap-6 sm:grid-cols-2'>
-            <label className='block'>
-              <span className={labelText}>Experience level</span>
-              <select
-                value={experienceLevel}
-                onChange={(e) => setExperienceLevel(e.target.value as any)}
-                className={`w-full rounded-xl border px-4 py-3 text-sm transition-all outline-none ${inputBg}`}
-              >
-                <option value='beginner'>Beginner</option>
-                <option value='intermediate'>Intermediate</option>
-                <option value='advanced'>Advanced</option>
-              </select>
+          {/* NEURAL EXCLUSIONS (DISLIKED) */}
+          <section className='space-y-4 border-t border-zinc-800/50 pt-8'>
+            <label className='text-[10px] font-black uppercase tracking-widest text-zinc-500'>
+              Neural Exclusions
             </label>
-
-            <label className='block'>
-              <span className={labelText}>Preferred split</span>
-              <select
-                value={preferredSplit}
-                onChange={(e) => setPreferredSplit(e.target.value)}
-                className={`w-full rounded-xl border px-4 py-3 text-sm transition-all outline-none ${inputBg}`}
+            <div className='flex gap-2'>
+              <input
+                type='text'
+                placeholder='Block movements...'
+                value={newDislike}
+                onChange={(e) => setNewDislike(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addDislike()}
+                className='flex-1 rounded-xl border border-zinc-800 bg-zinc-950 p-4 text-sm font-bold text-white outline-none focus:border-red-500/30'
+              />
+              <button
+                onClick={addDislike}
+                className='rounded-xl border border-zinc-800 bg-zinc-900 px-6 py-2 text-xs font-black text-zinc-400 hover:text-white'
               >
-                <option value='full-body'>Full body</option>
-                <option value='upper-lower'>Upper / Lower</option>
-                <option value='push-pull-legs'>Push / Pull / Legs</option>
-              </select>
-            </label>
-          </div>
+                ADD
+              </button>
+            </div>
+            <div className='flex flex-wrap gap-2 pt-2'>
+              {dislikedExercises.map((ex, index) => (
+                <span
+                  key={index}
+                  className='flex items-center gap-2 rounded-full border border-red-500/20 bg-red-500/5 px-3 py-1 text-[10px] font-bold text-red-400 uppercase tracking-tighter'
+                >
+                  {ex}
+                  <button
+                    onClick={() => removeDislike(index)}
+                    className='hover:text-white'
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          </section>
 
-          {/* TEXT AREAS */}
-          <label className='block'>
-            <span className={labelText}>Injuries or limitations</span>
-            <textarea
-              rows={3}
-              value={injuryNotes}
-              onChange={(e) => setInjuryNotes(e.target.value)}
-              placeholder='e.g. Lower back sensitivity'
-              className={`w-full rounded-xl border px-4 py-3 text-sm transition-all outline-none resize-none ${inputBg}`}
-            />
-          </label>
-
-          <label className='block'>
-            <span className={labelText}>Disliked exercises</span>
-            <input
-              value={dislikedExercises.join(", ")}
-              onChange={(e) =>
-                setDislikedExercises(
-                  e.target.value
-                    .split(",")
-                    .map((v) => v.trim())
-                    .filter(Boolean),
-                )
-              }
-              placeholder='Burpees, treadmill sprints'
-              className={`w-full rounded-xl border px-4 py-3 text-sm transition-all outline-none ${inputBg}`}
-            />
-          </label>
-        </div>
-
-        {/* Footer & Actions */}
-        <div className='mt-12'>
+          {/* ACTION */}
           <button
-            type='button'
-            onClick={onSave}
+            onClick={handleSave}
             disabled={saving}
-            className='relative w-full overflow-hidden rounded-2xl bg-violet-600 px-6 py-4 font-black text-white shadow-[0_0_20px_rgba(139,92,246,0.3)] hover:bg-violet-500 hover:shadow-violet-500/40 active:scale-[0.98] transition-all disabled:opacity-50 disabled:grayscale'
+            className='w-full mt-6 rounded-2xl bg-violet-600 py-4 text-xs font-black text-white uppercase tracking-[0.2em] hover:bg-violet-500 transition-all active:scale-[0.98] disabled:opacity-50 shadow-xl shadow-violet-900/20'
           >
-            <span className='relative z-10 uppercase tracking-widest text-sm'>
-              {saving ? "Processing..." : "Save Preferences"}
-            </span>
+            {saving ? "Syncing Protocol..." : "Apply & Recalibrate"}
           </button>
 
           {feedback && (
-            <div
-              className={`mt-6 rounded-xl border px-4 py-3 text-center text-xs font-bold uppercase tracking-wider transition-all ${
-                feedback.includes("Error")
-                  ? "border-red-900/50 bg-red-950/30 text-red-400"
-                  : "border-emerald-900/50 bg-emerald-950/30 text-emerald-400"
-              }`}
-            >
+            <p className='mt-4 text-center text-[10px] font-mono text-red-400 uppercase tracking-widest italic'>
               {feedback}
-            </div>
+            </p>
           )}
         </div>
       </div>
