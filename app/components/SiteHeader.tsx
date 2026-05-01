@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getSupabaseClient } from "@/lib/supabaseClient";
-import { Menu, X } from "lucide-react"; // Note: Install lucide-react or use SVG icons
 
 export default function SiteHeader() {
   const router = useRouter();
@@ -85,7 +84,7 @@ export default function SiteHeader() {
             </Link>
           ))}
           
-          <div className="ml-2 h-4 w-[1px] bg-gray-300" /> {/* Divider */}
+          <div className="ml-2 h-4 w-[1px] bg-gray-300" />
 
           {isCheckingAuth ? (
             <span className="px-3 py-2 text-gray-400">...</span>
@@ -109,38 +108,40 @@ export default function SiteHeader() {
 
         {/* Mobile Menu Button */}
         <button
-          className="z-50 p-2 md:hidden"
+          className="z-50 p-2 text-gray-600 md:hidden"
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           aria-label="Toggle Menu"
         >
           {mobileMenuOpen ? (
-            <X className="h-6 w-6 text-gray-900" />
+            /* Inline X Icon */
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
           ) : (
-            <Menu className="h-6 w-6 text-gray-900" />
+            /* Inline Menu Icon */
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
           )}
         </button>
 
         {/* Mobile Navigation Overlay */}
         {mobileMenuOpen && (
           <div className="fixed inset-0 z-40 flex flex-col bg-[#F9F8FF] p-6 pt-24 md:hidden">
-            <nav className="flex flex-col gap-4 text-lg font-medium">
+            <nav className="flex flex-col gap-2 text-lg font-medium">
               {navLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className="border-b border-gray-100 py-4 text-gray-800"
+                  className="rounded-lg px-4 py-4 text-gray-800 transition hover:bg-violet-50"
                 >
                   {link.name}
                 </Link>
               ))}
 
-              <div className="mt-4 pt-4">
+              <div className="mt-6 border-t border-gray-100 pt-6">
                 {isCheckingAuth ? null : isAuthenticated ? (
                   <button
                     onClick={handleSignOut}
                     disabled={isSigningOut}
-                    className="w-full rounded-xl bg-red-50 py-4 text-center font-bold text-red-600"
+                    className="w-full rounded-xl bg-red-50 py-4 text-center font-bold text-red-600 transition active:scale-[0.98]"
                   >
                     {isSigningOut ? "Signing Out..." : "Sign Out"}
                   </button>
@@ -148,7 +149,7 @@ export default function SiteHeader() {
                   <Link
                     href="/auth"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="block w-full rounded-xl bg-violet-600 py-4 text-center font-bold text-white"
+                    className="block w-full rounded-xl bg-violet-600 py-4 text-center font-bold text-white transition active:scale-[0.98]"
                   >
                     Sign In
                   </Link>
