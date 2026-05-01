@@ -9,6 +9,7 @@ export type Database = {
           owner_id: string;
         };
       };
+
       program_days: {
         Row: {
           id: string;
@@ -17,6 +18,7 @@ export type Database = {
           name: string | null;
         };
       };
+
       program_day_exercises: {
         Row: {
           id: string;
@@ -28,18 +30,17 @@ export type Database = {
           target_reps_max: number | null;
           rest_seconds: number | null;
           notes: string | null;
-          exercises: {
-            id: string;
-            name: string;
-          } | null;
+          exercises: { name: string }[] | null;
         };
       };
+
       exercises: {
         Row: {
           id: string;
           name: string;
         };
       };
+
       program_day_completions: {
         Row: {
           user_id: string;
@@ -47,6 +48,7 @@ export type Database = {
           program_id: string | null;
         };
       };
+
       user_setup_preferences: {
         Row: {
           user_id: string;
@@ -57,13 +59,5 @@ export type Database = {
         };
       };
     };
-    Relationships: [
-      {
-        foreignKeyName: "program_day_exercises_exercise_id_fkey";
-        columns: ["exercise_id"];
-        referencedRelation: "exercises";
-        referencedColumns: ["id"];
-      },
-    ];
   };
 };

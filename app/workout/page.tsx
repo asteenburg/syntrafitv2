@@ -12,7 +12,7 @@ type WorkoutExercise = {
   target_sets: number | null;
   target_reps_min: number | null;
   target_reps_max: number | null;
-  exercises: { name: string } | null;
+  exercises: { name: string }[] | null;
 };
 
 function WorkoutContent() {
@@ -56,7 +56,7 @@ function WorkoutContent() {
         setFeedback("Error loading exercises.");
       }
 
-      const rows = (data as WorkoutExercise[]) ?? [];
+      const rows = (data ?? []) as WorkoutExercise[];
       setExerciseRows(rows);
 
       const initialSets: Record<string, number> = {};
@@ -217,7 +217,7 @@ function WorkoutContent() {
                 className='rounded-lg border border-zinc-700 p-3'
               >
                 <p className='font-semibold'>
-                  {exercise.exercises?.name ?? "Exercise"}
+                  ex.exercises?.[0]?.name ?? "Exercise"
                 </p>
 
                 <p className='text-sm text-zinc-400'>
