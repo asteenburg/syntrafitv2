@@ -54,62 +54,62 @@ export default function SiteHeader() {
   };
 
   return (
-    <header className="border-b border-gray-200 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4 md:px-10">
+    <header className='border-b border-violet-100 bg-[#F9F8FF] backdrop-blur'>
+      <div className='mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4 md:px-10'>
         <Link
-          href="/"
-          className="text-sm font-semibold tracking-[0.18em] text-violet-300"
+          href='/'
+          className='text-sm font-semibold tracking-[0.18em] text-violet-300'
         >
           SYNTRAFIT
         </Link>
-        <nav className="flex items-center gap-2 text-sm">
+        <nav className='flex items-center gap-2 text-sm'>
           <Link
-            href="/"
-            className="rounded-md px-3 py-2 text-gray-700 transition hover:bg-gray-100 hover:text-gray-900"
+            href='/'
+            className='rounded-md px-3 py-2 text-gray-700 transition hover:bg-gray-100 hover:text-gray-900'
           >
             Home
           </Link>
           <Link
-            href="/setup"
-            className="rounded-md px-3 py-2 text-gray-700 transition hover:bg-gray-100 hover:text-gray-900"
+            href='/setup'
+            className='rounded-md px-3 py-2 text-gray-700 transition hover:bg-gray-100 hover:text-gray-900'
           >
             Setup
           </Link>
           <Link
-            href="/preferences"
-            className="rounded-md px-3 py-2 text-gray-700 transition hover:bg-gray-100 hover:text-gray-900"
+            href='/preferences'
+            className='rounded-md px-3 py-2 text-gray-700 transition hover:bg-gray-100 hover:text-gray-900'
           >
             Preferences
           </Link>
           <Link
-            href="/plan"
-            className="rounded-md px-3 py-2 text-gray-700 transition hover:bg-gray-100 hover:text-gray-900"
+            href='/plan'
+            className='rounded-md px-3 py-2 text-gray-700 transition hover:bg-gray-100 hover:text-gray-900'
           >
             My Plan
           </Link>
           <Link
-            href="/history"
-            className="rounded-md px-3 py-2 text-gray-700 transition hover:bg-gray-100 hover:text-gray-900"
+            href='/history'
+            className='rounded-md px-3 py-2 text-gray-700 transition hover:bg-gray-100 hover:text-gray-900'
           >
             History
           </Link>
           {isCheckingAuth ? (
-            <span className="rounded-md border border-gray-300 px-3 py-2 text-gray-500">
+            <span className='rounded-md border border-gray-300 px-3 py-2 text-gray-500'>
               ...
             </span>
           ) : isAuthenticated ? (
             <button
-              type="button"
+              type='button'
               onClick={handleSignOut}
               disabled={isSigningOut}
-              className="rounded-md border border-[#E60000]/70 px-3 py-2 font-medium text-[#ffb3b3] transition hover:border-[#E60000] hover:bg-[#E60000]/10 disabled:cursor-not-allowed disabled:opacity-70"
+              className='rounded-md border border-[#E60000]/70 px-3 py-2 font-medium text-[#ffb3b3] transition hover:border-[#E60000] hover:bg-[#E60000]/10 disabled:cursor-not-allowed disabled:opacity-70'
             >
               {isSigningOut ? "Signing Out..." : "Sign Out"}
             </button>
           ) : (
             <Link
-              href="/auth"
-              className="rounded-md border border-violet-400/40 px-3 py-2 font-medium text-violet-700 transition hover:border-violet-500/60 hover:bg-violet-100"
+              href='/auth'
+              className='rounded-md border border-violet-400/40 px-3 py-2 font-medium text-violet-700 transition hover:border-violet-500/60 hover:bg-violet-100'
             >
               Sign In
             </Link>

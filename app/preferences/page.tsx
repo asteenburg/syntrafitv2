@@ -274,7 +274,7 @@ export default function PreferencesPage() {
         </button>
 
         {feedback && (
-          <p className='mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600'>
+          <p className='mt-4 rounded-lg border border-[#CCFF00] bg-[#CCFF00]/50 px-3 py-2 text-sm text-zinc-500'>
             {feedback}
           </p>
         )}
