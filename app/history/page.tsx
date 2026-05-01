@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 
+// --- TYPES ---
 type SessionSetLog = {
   reps: number | null;
   weight_lbs: number | null;
@@ -37,6 +38,7 @@ type RecoveryRow = {
   readiness: number;
 };
 
+// --- HELPERS ---
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString(undefined, {
     month: "short",
@@ -62,7 +64,6 @@ export default function HistoryPage() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-
       if (!user) {
         router.replace("/auth");
         return;
@@ -77,14 +78,8 @@ export default function HistoryPage() {
           started_at,
           workout_exercise_entries (
             id,
-            exercises (
-              name
-            ),
-            set_logs (
-              reps,
-              weight_lbs,
-              is_warmup
-            )
+            exercises ( name ),
+            set_logs ( reps, weight_lbs, is_warmup )
           )
         `,
         )
@@ -97,7 +92,8 @@ export default function HistoryPage() {
         return;
       }
 
-      setSessions((sessionsResult.data as WorkoutSession[]) ?? []);
+      // FIX: Cast the result from never to our known WorkoutSession type
+      setSessions((sessionsResult.data as unknown as WorkoutSession[]) ?? []);
       setLoading(false);
     };
 
@@ -113,9 +109,7 @@ export default function HistoryPage() {
       const volumeLbs = session.workout_exercise_entries.reduce(
         (sessionTotal, entry) => {
           const entryTotal = entry.set_logs.reduce((setTotal, setLog) => {
-            if (setLog.is_warmup) {
-              return setTotal;
-            }
+            if (setLog.is_warmup) return setTotal;
             const reps = setLog.reps ?? 0;
             const weight = setLog.weight_lbs ?? 0;
             return setTotal + reps * weight;
@@ -184,19 +178,14 @@ export default function HistoryPage() {
       session.workout_exercise_entries.forEach((entry) => {
         const name = entry.exercises?.name?.toLowerCase() ?? "";
         let muscle = "full body";
-        if (name.includes("squat") || name.includes("lunge")) {
-          muscle = "legs";
-        } else if (name.includes("bench") || name.includes("push")) {
+        if (name.includes("squat") || name.includes("lunge")) muscle = "legs";
+        else if (name.includes("bench") || name.includes("push"))
           muscle = "chest";
-        } else if (name.includes("row") || name.includes("pull")) {
-          muscle = "back";
-        } else if (name.includes("press")) {
-          muscle = "shoulders";
-        }
+        else if (name.includes("row") || name.includes("pull")) muscle = "back";
+        else if (name.includes("press")) muscle = "shoulders";
+
         const volume = entry.set_logs.reduce((sum, log) => {
-          if (log.is_warmup) {
-            return sum;
-          }
+          if (log.is_warmup) return sum;
           return sum + (log.reps ?? 0) * (log.weight_lbs ?? 0);
         }, 0);
         map.set(muscle, (map.get(muscle) ?? 0) + volume);
@@ -245,94 +234,108 @@ export default function HistoryPage() {
 
   if (loading) {
     return (
-      <main className='flex min-h-screen items-center justify-center bg-white text-gray-900'>
-        <p>Loading workout history...</p>
+      <main className='flex min-h-screen items-center justify-center bg-zinc-950 font-mono text-[10px] uppercase tracking-[0.3em] text-violet-500'>
+        Syncing Neural Data...
       </main>
     );
   }
 
   return (
-    <main className='min-h-screen bg-white px-6 py-10 text-zinc-200'>
-      <div className='mx-auto w-full max-w-5xl rounded-2xl border border-gray-200 bg-zinc-900 p-6 shadow-[0_-16px_22px_-22px_rgba(168,85,247,0.35)]'>
-        <div className='flex flex-wrap items-center justify-between gap-3'>
+    <main className='min-h-screen bg-zinc-950 px-6 py-12 text-zinc-100'>
+      <div className='relative mx-auto w-full max-w-5xl rounded-3xl border border-zinc-800 bg-zinc-900/40 p-8 backdrop-blur-xl shadow-2xl'>
+        <header className='flex flex-wrap items-end justify-between gap-6 border-b border-zinc-800/50 pb-8 mb-10'>
           <div>
-            <h1 className='text-3xl font-bold'>Workout History</h1>
-            <p className='mt-2 text-sm text-gray-600'>
-              Track how your training volume changes over time.
+            <p className='text-[10px] font-black tracking-[0.3em] text-violet-400 uppercase mb-2'>
+              Archive: Ready
+            </p>
+            <h1 className='text-4xl font-extrabold tracking-tighter'>
+              Workout History
+            </h1>
+            <p className='mt-2 text-xs font-medium text-zinc-500 uppercase tracking-widest'>
+              Performance Analytics & Volume Trends
             </p>
           </div>
           <Link
             href='/plan'
-            className='rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:border-gray-400'
+            className='rounded-xl border border-zinc-800 bg-zinc-900 px-6 py-2 text-xs font-bold text-zinc-400 hover:text-white transition-colors uppercase tracking-widest'
           >
-            Back to plan
+            Back to Plan
           </Link>
+        </header>
+
+        <div className='grid gap-4 md:grid-cols-3'>
+          <div className='rounded-2xl border border-zinc-800 bg-zinc-950/50 p-5'>
+            <p className='text-[10px] font-black tracking-widest text-zinc-500 uppercase'>
+              Volume Achieved (7d)
+            </p>
+            <p className='mt-3 text-3xl font-extrabold tracking-tight'>
+              {Math.round(trendSummary.achieved)}{" "}
+              <span className='text-sm font-normal text-zinc-500'>lbs</span>
+            </p>
+          </div>
+          <div className='rounded-2xl border border-sky-500/20 bg-sky-500/5 p-5'>
+            <p className='text-[10px] font-black tracking-widest text-sky-400 uppercase'>
+              Volume Increase
+            </p>
+            <p className='mt-3 text-3xl font-extrabold tracking-tight text-sky-400'>
+              +{Math.round(trendSummary.increase)}{" "}
+              <span className='text-sm font-normal opacity-70'>lbs</span>
+            </p>
+          </div>
+          <div className='rounded-2xl border border-red-500/20 bg-red-500/5 p-5'>
+            <p className='text-[10px] font-black tracking-widest text-red-400 uppercase'>
+              Volume Decrease
+            </p>
+            <p className='mt-3 text-3xl font-extrabold tracking-tight text-red-400'>
+              -{Math.round(trendSummary.decrease)}{" "}
+              <span className='text-sm font-normal opacity-70'>lbs</span>
+            </p>
+          </div>
         </div>
 
-        <div className='mt-8 grid gap-3 md:grid-cols-3'>
-          <div className='rounded-xl border border-zinc-700 bg-zinc-950 p-4'>
-            <p className='text-xs uppercase tracking-wider text-zinc-400'>
-              Volume achieved (7d)
-            </p>
-            <p className='mt-2 text-2xl font-semibold'>
-              {Math.round(trendSummary.achieved)} lbs
-            </p>
-          </div>
-          <div className='rounded-xl border border-[#CCFF00]/70 bg-[#CCFF00]/10 p-4'>
-            <p className='text-xs uppercase tracking-wider text-[#CCFF00]'>
-              Volume increase
-            </p>
-            <p className='mt-2 text-2xl font-semibold text-[#CCFF00]'>
-              +{Math.round(trendSummary.increase)} lbs
-            </p>
-          </div>
-          <div className='rounded-xl border border-[#E60000]/60 bg-[#E60000]/10 p-4'>
-            <p className='text-xs uppercase tracking-wider text-[#ffb3b3]'>
-              Volume decrease
-            </p>
-            <p className='mt-2 text-2xl font-semibold text-[#ffb3b3]'>
-              -{Math.round(trendSummary.decrease)} lbs
-            </p>
-          </div>
-        </div>
-
-        <div className='mt-4 grid gap-3 md:grid-cols-2'>
-          <div className='rounded-xl border border-zinc-700 bg-zinc-950 p-4'>
-            <p className='text-xs uppercase tracking-wider text-zinc-400'>
+        <div className='mt-4 grid gap-4 md:grid-cols-2'>
+          <div className='rounded-2xl border border-zinc-800 bg-zinc-950/50 p-5'>
+            <p className='text-[10px] font-black tracking-widest text-zinc-500 uppercase'>
               Sessions (30d)
             </p>
-            <p className='mt-2 text-2xl font-semibold'>
+            <p className='mt-2 text-2xl font-bold tracking-tight'>
               {consistencySummary.sessionsLast30Days}
             </p>
           </div>
-          <div className='rounded-xl border border-zinc-700 bg-zinc-950 p-4'>
-            <p className='text-xs uppercase tracking-wider text-zinc-400'>
-              Active days
+          <div className='rounded-2xl border border-zinc-800 bg-zinc-950/50 p-5'>
+            <p className='text-[10px] font-black tracking-widest text-zinc-500 uppercase'>
+              Active Days
             </p>
-            <p className='mt-2 text-2xl font-semibold'>
+            <p className='mt-2 text-2xl font-bold tracking-tight'>
               {consistencySummary.activeDays}
             </p>
           </div>
         </div>
 
-        <section className='mt-4 rounded-xl border border-zinc-700 bg-zinc-950 p-4'>
-          <h2 className='font-semibold'>Muscle Recovery Readiness</h2>
-          <div className='mt-3 grid gap-2 md:grid-cols-2'>
+        <section className='mt-6 rounded-2xl border border-zinc-800 bg-zinc-950/50 p-6'>
+          <h2 className='text-xs font-black tracking-widest text-zinc-400 uppercase mb-5'>
+            Muscle Recovery Readiness
+          </h2>
+          <div className='grid gap-4 md:grid-cols-2'>
             {(recoveryRows.length
               ? recoveryRows
               : [{ muscle: "full body", readiness: 100 }]
             ).map((row) => (
               <div
                 key={row.muscle}
-                className='rounded-md border border-zinc-800 p-3'
+                className='rounded-xl border border-zinc-800/50 bg-zinc-900/30 p-4'
               >
-                <div className='flex items-center justify-between'>
-                  <p className='capitalize text-sm'>{row.muscle}</p>
-                  <p className='text-sm text-zinc-300'>{row.readiness}%</p>
+                <div className='flex items-center justify-between mb-3'>
+                  <p className='text-sm font-bold capitalize text-zinc-200'>
+                    {row.muscle}
+                  </p>
+                  <p className='text-[10px] font-mono font-bold text-sky-400'>
+                    {row.readiness}%
+                  </p>
                 </div>
-                <div className='mt-2 h-2 overflow-hidden rounded bg-zinc-800'>
+                <div className='h-1.5 w-full overflow-hidden rounded-full bg-zinc-800'>
                   <div
-                    className='h-full bg-[#CCFF00]'
+                    className='h-full bg-sky-500 transition-all duration-500'
                     style={{ width: `${row.readiness}%` }}
                   />
                 </div>
@@ -341,109 +344,120 @@ export default function HistoryPage() {
           </div>
         </section>
 
-        <div className='mt-8 space-y-5'>
-          <section className='rounded-xl border border-zinc-700 bg-zinc-950 p-4'>
-            <div className='mb-4 flex items-center justify-between gap-3'>
-              <h2 className='font-semibold'>Workout Volume Chart</h2>
-              <p className='text-xs text-zinc-400'>
+        <div className='mt-10 space-y-8'>
+          <section className='rounded-2xl border border-zinc-800 bg-zinc-950/50 p-6'>
+            <div className='mb-8 flex items-center justify-between'>
+              <h2 className='text-xs font-black tracking-widest text-zinc-400 uppercase'>
+                Volume Progression Chart
+              </h2>
+              <p className='text-[10px] font-mono text-zinc-600 uppercase'>
                 Last {chartSessions.length} sessions
               </p>
             </div>
-            <div className='flex h-52 items-end gap-2'>
+            <div className='flex h-52 items-end gap-3 px-2'>
               {chartSessions.map((session) => {
                 const isUp = session.deltaFromPrevious > 0;
                 const isDown = session.deltaFromPrevious < 0;
                 return (
                   <div
                     key={session.id}
-                    className='flex h-full min-w-0 flex-1 flex-col'
+                    className='group flex h-full min-w-0 flex-1 flex-col'
                   >
-                    <div className='flex flex-1 items-end'>
+                    <div className='flex flex-1 items-end relative'>
                       <div
-                        className={`mx-auto w-3 rounded-t-sm md:w-4 ${
+                        className={`mx-auto w-full max-w-[16px] rounded-t-sm transition-all duration-300 group-hover:opacity-100 ${
                           isUp
-                            ? "bg-[#CCFF00]/80"
+                            ? "bg-sky-500/80"
                             : isDown
-                              ? "bg-[#E60000]/75"
+                              ? "bg-red-500/70"
                               : session.isPlaceholder
-                                ? "border border-dashed border-zinc-500/70 bg-zinc-700/30"
-                                : "bg-zinc-500/70"
+                                ? "border border-dashed border-zinc-700 bg-zinc-800/30"
+                                : "bg-zinc-700/70"
                         }`}
                         style={{ height: `${session.heightPercent}%` }}
                         title={`${Math.round(session.volumeLbs)} lbs on ${formatDate(session.startedAt)}`}
                       />
                     </div>
-                    <p className='mt-2 text-center text-[10px] text-zinc-500'>
+                    <p className='mt-3 text-center text-[9px] font-mono font-bold text-zinc-600 group-hover:text-zinc-400 transition-colors'>
                       {session.label}
                     </p>
                   </div>
                 );
               })}
             </div>
-            {sessionVolumes.length === 0 ? (
-              <p className='mt-3 text-xs text-zinc-500'>
-                Today&apos;s bar is a placeholder until your first completed
-                workout is logged.
+            {sessionVolumes.length === 0 && (
+              <p className='mt-4 text-[10px] text-zinc-600 font-mono text-center uppercase tracking-wider'>
+                Placeholder active until initial log
               </p>
-            ) : null}
+            )}
           </section>
 
           {sessionVolumes.length === 0 ? (
-            <div className='rounded-xl border border-dashed border-zinc-700 bg-zinc-950 p-6 text-center'>
-              <p className='text-zinc-300'>No workout sessions logged yet.</p>
-              <p className='mt-2 text-sm text-zinc-500'>
-                Complete a workout day to replace the placeholder with real
-                session volume.
+            <div className='rounded-2xl border border-dashed border-zinc-800 bg-zinc-950/30 p-12 text-center'>
+              <p className='text-xs font-black tracking-widest text-zinc-600 uppercase'>
+                No Archive Data Detected
               </p>
             </div>
           ) : (
-            sessionVolumes.map((session) => {
-              const isUp = session.deltaFromPrevious > 0;
-              const isDown = session.deltaFromPrevious < 0;
-              return (
-                <article
-                  key={session.id}
-                  className='rounded-xl border border-zinc-700 bg-zinc-950 p-4'
-                >
-                  <div className='flex flex-wrap items-center justify-between gap-3'>
-                    <div>
-                      <h2 className='font-semibold'>{session.title}</h2>
-                      <p className='mt-1 text-sm text-zinc-400'>
-                        {formatDate(session.startedAt)}
-                      </p>
-                    </div>
-                    <div className='text-right'>
-                      <p className='text-lg font-semibold'>
-                        {Math.round(session.volumeLbs)} lbs
-                      </p>
-                      <p
-                        className={`text-sm ${
-                          isUp
-                            ? "text-[#CCFF00]"
+            <div className='space-y-4'>
+              <h2 className='text-xs font-black tracking-widest text-zinc-400 uppercase px-1'>
+                Session Logs
+              </h2>
+              {sessionVolumes.map((session) => {
+                const isUp = session.deltaFromPrevious > 0;
+                const isDown = session.deltaFromPrevious < 0;
+                return (
+                  <article
+                    key={session.id}
+                    className='group rounded-2xl border border-zinc-800 bg-zinc-900/30 p-6 transition-all hover:border-zinc-700 hover:bg-zinc-900/50'
+                  >
+                    <div className='flex flex-wrap items-center justify-between gap-6'>
+                      <div>
+                        <h2 className='text-lg font-bold text-zinc-100 group-hover:text-white transition-colors'>
+                          {session.title}
+                        </h2>
+                        <p className='mt-1 text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-tighter'>
+                          {formatDate(session.startedAt)}
+                        </p>
+                      </div>
+                      <div className='text-right'>
+                        <p className='text-xl font-black tracking-tight'>
+                          {Math.round(session.volumeLbs)}{" "}
+                          <span className='text-xs font-normal text-zinc-500 uppercase tracking-widest'>
+                            lbs
+                          </span>
+                        </p>
+                        <p
+                          className={`text-[10px] font-black uppercase tracking-widest mt-1 ${
+                            isUp
+                              ? "text-sky-400"
+                              : isDown
+                                ? "text-red-400/80"
+                                : "text-zinc-600"
+                          }`}
+                        >
+                          {isUp
+                            ? `+${Math.round(session.deltaFromPrevious)} Δ`
                             : isDown
-                              ? "text-[#ffb3b3]"
-                              : "text-zinc-400"
-                        }`}
-                      >
-                        {isUp
-                          ? `+${Math.round(session.deltaFromPrevious)} vs previous`
-                          : isDown
-                            ? `-${Math.round(Math.abs(session.deltaFromPrevious))} vs previous`
-                            : "No change vs previous"}
-                      </p>
+                              ? `-${Math.round(Math.abs(session.deltaFromPrevious))} Δ`
+                              : "No Variance"}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                </article>
-              );
-            })
+                  </article>
+                );
+              })}
+            </div>
           )}
         </div>
 
-        {feedback ? (
-          <p className='mt-4 rounded-lg border border-[#E60000]/60 bg-[#E60000]/10 px-3 py-2 text-sm text-[#ffb3b3]'>
-            {feedback}
-          </p>
-        ) : null}
+        {feedback && (
+          <div className='mt-8 rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3'>
+            <p className='text-[10px] font-black uppercase tracking-widest text-red-400'>
+              {feedback}
+            </p>
+          </div>
+        )}
       </div>
     </main>
   );

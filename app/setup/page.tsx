@@ -111,7 +111,7 @@ export default function SetupPage() {
   const onCreatePlan = async () => {
     const supabase = getSupabaseClient();
     if (!supabase) {
-      setFeedback("Supabase is not configured.");
+      setFeedback("Supabase configuration missing.");
       return;
     }
 
@@ -158,7 +158,7 @@ export default function SetupPage() {
       return;
     }
 
-    setFeedback("Setup saved. Redirecting to your plan...");
+    setFeedback("Initialization complete. Redirecting...");
     setSaving(false);
     router.push("/plan");
   };
@@ -168,24 +168,24 @@ export default function SetupPage() {
     const base =
       "rounded-xl border px-4 py-3 text-left transition-all duration-200 text-sm font-medium focus:outline-none";
     const active =
-      "border-violet-300 bg-violet-300/10 text-violet-700 ring-1 ring-violet-300";
+      "border-violet-500/50 bg-violet-500/10 text-violet-400 ring-1 ring-violet-500/50 shadow-[0_0_15px_rgba(139,92,246,0.1)]";
     const inactive =
-      "border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:bg-gray-50";
+      "border-zinc-800 bg-zinc-900/50 text-zinc-500 hover:border-zinc-700 hover:text-zinc-300";
     return `${base} ${isActive ? active : inactive}`;
   };
 
   const labelStyles =
-    "mb-3 block text-xs font-bold tracking-[0.15em] text-gray-400 uppercase";
+    "mb-3 block text-[10px] font-black tracking-[0.2em] text-zinc-500 uppercase";
   const inputStyles =
-    "w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 transition focus:border-violet-300 focus:ring-4 focus:ring-violet-500/5 outline-none";
+    "w-full rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3 text-sm text-zinc-100 transition focus:border-violet-500/50 focus:ring-4 focus:ring-violet-500/5 outline-none placeholder:text-zinc-700";
 
   if (loading) {
     return (
-      <main className='flex min-h-screen items-center justify-center bg-white text-gray-900'>
-        <div className='flex flex-col items-center gap-2'>
-          <div className='h-6 w-6 animate-spin rounded-full border-2 border-violet-500 border-t-transparent' />
-          <p className='text-sm font-medium text-gray-500'>
-            Loading your setup...
+      <main className='flex min-h-screen items-center justify-center bg-zinc-950 text-zinc-100'>
+        <div className='flex flex-col items-center gap-4'>
+          <div className='h-8 w-8 animate-spin rounded-full border-2 border-violet-500 border-t-transparent' />
+          <p className='font-mono text-[10px] tracking-widest uppercase text-violet-400'>
+            Syncing Protocol...
           </p>
         </div>
       </main>
@@ -193,35 +193,42 @@ export default function SetupPage() {
   }
 
   return (
-    <main className='min-h-screen bg-white px-6 py-10 text-gray-900'>
-      {/* THE CARD WITH TOP SHADOW */}
-      <div className='mx-auto w-full max-w-3xl rounded-2xl border border-gray-100 bg-white p-6 sm:p-10 shadow-[0_-24px_30px_-24px_rgba(168,85,247,0.4)]'>
-        <div className='flex items-start justify-between gap-4 border-b border-gray-50 pb-8'>
+    <main className='min-h-screen bg-zinc-950 px-6 py-12 text-zinc-100 selection:bg-violet-500/30'>
+      {/* Background Ambient Glow */}
+      <div className='fixed inset-0 overflow-hidden pointer-events-none'>
+        <div className='absolute -top-[5%] -right-[5%] w-[35%] h-[35%] bg-violet-900/10 blur-[100px] rounded-full' />
+      </div>
+
+      <div className='relative mx-auto w-full max-w-3xl rounded-3xl border border-zinc-800 bg-zinc-900/40 p-8 sm:p-12 backdrop-blur-xl shadow-[0_-24px_50px_-24px_rgba(168,85,247,0.2)]'>
+        <div className='flex flex-col sm:flex-row sm:items-start justify-between gap-6 border-b border-zinc-800/50 pb-10'>
           <div>
-            <p className='text-xs font-bold tracking-[0.2em] text-violet-400 uppercase'>
-              SYNTRAFIT SETUP
-            </p>
-            <h1 className='mt-2 text-3xl font-extrabold tracking-tight'>
-              Let&apos;s build your training
+            <div className='flex items-center gap-2 mb-2'>
+              <div className='h-1 w-6 bg-violet-500' />
+              <p className='text-[10px] font-black tracking-[0.3em] text-violet-400 uppercase'>
+                SyntraFit OS
+              </p>
+            </div>
+            <h1 className='text-4xl font-extrabold tracking-tighter text-white'>
+              Initialize Training
             </h1>
-            <p className='mt-2 text-sm text-gray-500 max-w-md'>
-              Pick your main outcome and training environment. You can fine-tune
-              details in your profile later.
+            <p className='mt-2 text-sm text-zinc-500 max-w-md font-medium leading-relaxed'>
+              Define your primary objectives and training parameters. The
+              algorithm will adapt to your environment.
             </p>
           </div>
 
           <Link
             href='/preferences'
-            className='shrink-0 rounded-lg border border-gray-200 px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-50 transition'
+            className='shrink-0 rounded-xl border border-zinc-800 px-5 py-2.5 text-xs font-bold text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all active:scale-95'
           >
             Preferences
           </Link>
         </div>
 
-        <div className='space-y-10 pt-10'>
+        <div className='space-y-12 pt-12'>
           {/* GOALS */}
           <section>
-            <label className={labelStyles}>Primary Goal</label>
+            <label className={labelStyles}>Mission Objective</label>
             <div className='grid gap-3 sm:grid-cols-2'>
               {goals.map((goal) => (
                 <button
@@ -238,7 +245,7 @@ export default function SetupPage() {
 
           {/* ENVIRONMENT */}
           <section>
-            <label className={labelStyles}>Training environment</label>
+            <label className={labelStyles}>Operational Environment</label>
             <div className='grid gap-3 sm:grid-cols-2'>
               <button
                 type='button'
@@ -255,14 +262,14 @@ export default function SetupPage() {
                   trainingEnvironment === "no-equipment",
                 )}
               >
-                No equipment
+                Zero equipment
               </button>
             </div>
           </section>
 
           {/* EXPERIENCE */}
           <section>
-            <label className={labelStyles}>Experience level</label>
+            <label className={labelStyles}>Skill Level</label>
             <div className='grid gap-3 sm:grid-cols-3'>
               {(["beginner", "intermediate", "advanced"] as const).map(
                 (level) => (
@@ -281,59 +288,79 @@ export default function SetupPage() {
 
           {/* PREFERRED SPLIT */}
           <section>
-            <label className={labelStyles}>Preferred split</label>
+            <label className={labelStyles}>Preferred Split Architecture</label>
             <select
               value={preferredSplit}
               onChange={(e) => setPreferredSplit(e.target.value)}
               className={inputStyles}
             >
-              <option value='full-body'>Full body</option>
-              <option value='upper-lower'>Upper / Lower</option>
-              <option value='push-pull-legs'>Push / Pull / Legs</option>
+              <option
+                className='bg-zinc-950'
+                value='full-body'
+              >
+                Full body
+              </option>
+              <option
+                className='bg-zinc-950'
+                value='upper-lower'
+              >
+                Upper / Lower
+              </option>
+              <option
+                className='bg-zinc-950'
+                value='push-pull-legs'
+              >
+                Push / Pull / Legs
+              </option>
             </select>
           </section>
 
-          {/* INJURY */}
-          <section>
-            <label className={labelStyles}>Injury Notes</label>
-            <textarea
-              value={injuryNotes}
-              onChange={(e) => setInjuryNotes(e.target.value)}
-              placeholder='Any physical limitations or old injuries?'
-              rows={3}
-              className={inputStyles}
-            />
-          </section>
+          <div className='grid gap-8 sm:grid-cols-2'>
+            {/* INJURY */}
+            <section>
+              <label className={labelStyles}>Structural Limitations</label>
+              <textarea
+                value={injuryNotes}
+                onChange={(e) => setInjuryNotes(e.target.value)}
+                placeholder='List injuries...'
+                rows={3}
+                className={`${inputStyles} resize-none`}
+              />
+            </section>
 
-          {/* DISLIKED */}
-          <section>
-            <label className={labelStyles}>Disliked Exercises</label>
-            <input
-              value={dislikedExercises}
-              onChange={(e) => setDislikedExercises(e.target.value)}
-              placeholder='Squats, Lunges, etc. (comma separated)'
-              className={inputStyles}
-            />
-          </section>
+            {/* DISLIKED */}
+            <section>
+              <label className={labelStyles}>Exercise Blacklist</label>
+              <textarea
+                value={dislikedExercises}
+                onChange={(e) => setDislikedExercises(e.target.value)}
+                placeholder='Squats, burpees...'
+                rows={3}
+                className={`${inputStyles} resize-none`}
+              />
+            </section>
+          </div>
         </div>
 
         {/* ACTIONS */}
-        <div className='mt-12'>
+        <div className='mt-16'>
           <button
             type='button'
             onClick={onCreatePlan}
             disabled={saving}
-            className='w-full rounded-xl bg-violet-500 px-6 py-4 font-bold text-white shadow-lg shadow-violet-100 hover:bg-violet-600 active:scale-[0.99] transition-all disabled:opacity-50'
+            className='relative w-full overflow-hidden rounded-2xl bg-violet-600 px-6 py-5 font-black text-white shadow-[0_0_30px_rgba(139,92,246,0.3)] hover:bg-violet-500 hover:shadow-violet-500/50 active:scale-[0.98] transition-all disabled:opacity-50'
           >
-            {saving ? "Creating your program..." : "Save Setup & Continue"}
+            <span className='relative z-10 uppercase tracking-[0.2em] text-sm'>
+              {saving ? "Calibrating..." : "Finalize & Generate Program"}
+            </span>
           </button>
 
           {feedback && (
             <div
-              className={`mt-6 rounded-xl p-4 text-center text-sm font-medium ${
+              className={`mt-6 rounded-xl border px-4 py-3 text-center text-xs font-bold uppercase tracking-wider ${
                 feedback.includes("Could not")
-                  ? "bg-red-50 text-red-600"
-                  : "bg-emerald-50 text-emerald-600"
+                  ? "border-red-900/50 bg-red-950/30 text-red-400"
+                  : "border-emerald-900/50 bg-emerald-950/30 text-emerald-400"
               }`}
             >
               {feedback}
