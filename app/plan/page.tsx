@@ -1,20 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 
-// --- TYPES ---
-type SetupPreferenceRow = {
-  primary_goal: string;
-  equipment_type: string;
-  days_per_week: number;
-  session_minutes: number;
-  preferred_split: string;
-  disliked_exercises: string[] | null;
-};
+// --- IMPORT EXTERNAL CONSTANTS ---
+import {
+  muscleGroupPools,
+  equipmentPlans,
+  noEquipmentPlans,
+} from "@/lib/workoutConstants";
 
+// --- TYPES ---
 type PlanDayExercise = {
   id: string;
   exercise_id: string;
@@ -25,6 +23,7 @@ type PlanDayExercise = {
   rest_seconds: number | null;
   notes: string | null;
   exercises: {
+    id: string;
     name: string;
   } | null;
 };
@@ -48,147 +47,35 @@ type ExerciseOption = {
   name: string;
 };
 
-// --- LOGIC CONSTANTS ---
-const equipmentPlans: Record<string, string[]> = {
-  "Build muscle": [
-    "Barbell Back Squat",
-    "Bench Press",
-    "Romanian Deadlift",
-    "Pull-Up",
-    "Overhead Press",
-    "Dumbbell Row",
-    "Leg Press",
-    "Incline Dumbbell Press",
-  ],
-  "Lose fat": [
-    "Goblet Squat",
-    "Dumbbell Bench Press",
-    "Lat Pulldown",
-    "Walking Lunge",
-    "Seated Row",
-    "Kettlebell Swing",
-    "Bike Intervals",
-    "Treadmill Incline Walk",
-  ],
-  "Improve endurance": [
-    "Bike Intervals",
-    "Treadmill Incline Walk",
-    "Rowing Machine",
-    "Step-Ups",
-    "Goblet Squat",
-    "Dumbbell Push Press",
-    "Plank",
-    "Farmer Carry",
-  ],
-  "Increase strength": [
-    "Barbell Back Squat",
-    "Deadlift",
-    "Bench Press",
-    "Overhead Press",
-    "Barbell Row",
-    "Split Squat",
-    "Chin-Up",
-    "Hip Thrust",
-  ],
-};
-
-const noEquipmentPlans: Record<string, string[]> = {
-  "Build muscle": [
-    "Push-Up",
-    "Bulgarian Split Squat",
-    "Bodyweight Row",
-    "Pike Push-Up",
-    "Glute Bridge",
-    "Tempo Squat",
-    "Plank",
-    "Mountain Climbers",
-  ],
-  "Lose fat": [
-    "Burpee",
-    "Bodyweight Squat",
-    "Alternating Lunge",
-    "Push-Up",
-    "Mountain Climbers",
-    "Jumping Jacks",
-    "High Knees",
-    "Plank",
-  ],
-  "Improve endurance": [
-    "Jumping Jacks",
-    "High Knees",
-    "Mountain Climbers",
-    "Bodyweight Squat",
-    "Alternating Reverse Lunge",
-    "Plank Shoulder Tap",
-    "Walk/Jog Intervals",
-    "Step-Ups",
-  ],
-  "Increase strength": [
-    "Decline Push-Up",
-    "Bulgarian Split Squat",
-    "Single-Leg Glute Bridge",
-    "Pike Push-Up",
-    "Tempo Squat",
-    "Bodyweight Row",
-    "Hollow Hold",
-    "Side Plank",
-  ],
-};
-
 // --- HELPER FUNCTIONS ---
+
 function buildExercisePool(goal: string, equipmentType: string) {
-  const isNoEquipment =
-    equipmentType.includes("Bodyweight") ||
-    equipmentType.includes("Cardio") ||
-    equipmentType.includes("Yoga");
-  const source = isNoEquipment ? noEquipmentPlans : equipmentPlans;
+  const lowerGoal = goal.toLowerCase().trim();
+  if (muscleGroupPools[lowerGoal]) return muscleGroupPools[lowerGoal];
+  const source = equipmentType.includes("Bodyweight")
+    ? noEquipmentPlans
+    : equipmentPlans;
   return source[goal] ?? source["Build muscle"];
 }
 
 function buildRepScheme(goal: string) {
-  if (goal === "Increase strength")
+  const lower = goal.toLowerCase();
+  if (lower.includes("strength"))
     return { sets: 5, minReps: 3, maxReps: 6, rest: 150 };
-  if (goal === "Improve endurance")
+  if (lower.includes("endurance") || lower.includes("cardio"))
     return { sets: 3, minReps: 12, maxReps: 20, rest: 60 };
-  if (goal === "Lose fat")
-    return { sets: 4, minReps: 10, maxReps: 15, rest: 75 };
   return { sets: 4, minReps: 8, maxReps: 12, rest: 90 };
-}
-
-function getExerciseCountForDuration(sessionMinutes: number) {
-  if (sessionMinutes <= 30) return 3;
-  if (sessionMinutes <= 45) return 4;
-  if (sessionMinutes <= 60) return 5;
-  if (sessionMinutes <= 75) return 6;
-  return 7;
-}
-
-function tuneSchemeForDuration(
-  base: { sets: number; minReps: number; maxReps: number; rest: number },
-  sessionMinutes: number,
-) {
-  if (sessionMinutes <= 30)
-    return {
-      ...base,
-      sets: Math.max(2, base.sets - 1),
-      rest: Math.max(45, base.rest - 30),
-    };
-  if (sessionMinutes >= 75)
-    return { ...base, sets: Math.min(6, base.sets + 1), rest: base.rest };
-  return base;
 }
 
 function estimateDayMinutes(day: PlanDay) {
   const warmupMinutes = 5;
-  const perExerciseTransitionSeconds = 45;
   const seconds = day.program_day_exercises.reduce((total, exercise) => {
     const sets = exercise.target_sets ?? 3;
     const avgReps =
       ((exercise.target_reps_min ?? 8) + (exercise.target_reps_max ?? 12)) / 2;
-    const repSeconds = avgReps * 4;
-    const workSeconds = sets * repSeconds;
+    const workSeconds = sets * (avgReps * 4);
     const restSeconds = Math.max(0, sets - 1) * (exercise.rest_seconds ?? 60);
-    return total + workSeconds + restSeconds + perExerciseTransitionSeconds;
+    return total + workSeconds + restSeconds + 45;
   }, 0);
   return Math.max(15, Math.round((seconds + warmupMinutes * 60) / 60));
 }
@@ -201,10 +88,7 @@ function getDurationBadge(estimated: number, preferred: number | null) {
     };
   const delta = estimated - preferred;
   if (Math.abs(delta) <= 5)
-    return {
-      label: "On target",
-      className: "border-violet-500/50 text-violet-400",
-    };
+    return { label: "On target", className: "border-sky-500/50 text-sky-400" };
   if (delta > 0)
     return {
       label: `+${delta} min`,
@@ -229,21 +113,11 @@ export default function PlanPage() {
   const [preferredSessionMinutes, setPreferredSessionMinutes] = useState<
     number | null
   >(null);
-  const [dayDifficulty, setDayDifficulty] = useState<Record<string, string>>(
-    {},
-  );
-  const [nextWeightSuggestion, setNextWeightSuggestion] = useState<
-    Record<string, string>
-  >({});
   const [swapOptions, setSwapOptions] = useState<ExerciseOption[]>([]);
-  const [needsRegeneration, setNeedsRegeneration] = useState(false);
 
-  const loadPlan = async () => {
+  const loadPlan = useCallback(async () => {
     const supabase = getSupabaseClient();
-    if (!supabase) {
-      router.replace("/auth");
-      return;
-    }
+    if (!supabase) return;
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -252,30 +126,26 @@ export default function PlanPage() {
       return;
     }
 
-    const prefsResult = await supabase
+    const { data: prefs } = await (supabase
       .from("user_setup_preferences")
-      .select("session_minutes, disliked_exercises")
+      .select("session_minutes")
       .eq("user_id", user.id)
-      .maybeSingle();
-    const preferenceData = (prefsResult.data as any) ?? null;
-
-    if (!prefsResult.error && preferenceData?.session_minutes) {
-      setPreferredSessionMinutes(preferenceData.session_minutes);
-    }
+      .maybeSingle() as any);
+    if (prefs) setPreferredSessionMinutes(prefs.session_minutes);
 
     const { data: planData } = await supabase
       .from("programs")
       .select(
         `
-        id, name, description,
-        program_days (
-          id, day_index, name,
-          program_day_exercises (
-            id, exercise_id, order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, notes,
-            exercises ( name )
-          )
-        )
-      `,
+  id, name, description,
+  program_days (
+    id, day_index, name,
+    program_day_exercises (
+      id, exercise_id, order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, notes,
+      exercises ( id, name )
+    )
+  )
+`,
       )
       .eq("owner_id", user.id)
       .eq("name", "Starter Plan")
@@ -283,315 +153,177 @@ export default function PlanPage() {
       .limit(1)
       .maybeSingle();
 
-    const currentProgram = planData as any as Program | null;
+    const currentProgram = planData as unknown as Program | null;
     setProgram(currentProgram);
 
     if (currentProgram) {
-      const initialWeights: Record<string, string> = {};
-      const initialBodyweightFlags: Record<string, boolean> = {};
+      const weights: Record<string, string> = {};
+      const bw: Record<string, boolean> = {};
       currentProgram.program_days.forEach((day) => {
-        day.program_day_exercises.forEach((exercise) => {
-          initialWeights[exercise.id] = "";
-          initialBodyweightFlags[exercise.id] = Boolean(
-            exercise.exercises?.name?.toLowerCase().includes("bodyweight"),
-          );
+        day.program_day_exercises.forEach((ex) => {
+          weights[ex.id] = "";
+          bw[ex.id] =
+            ex.exercises?.name?.toLowerCase().includes("bodyweight") ?? false;
         });
       });
-      setExerciseWeights(initialWeights);
-      setBodyweightOnly(initialBodyweightFlags);
+      setExerciseWeights(weights);
+      setBodyweightOnly(bw);
 
-      // Suggestions logic
-      const allExerciseIds = currentProgram.program_days.flatMap((day) =>
-        day.program_day_exercises.map((ex) => ex.exercise_id),
-      );
-      const suggestionMap: Record<string, string> = {};
-      for (const exId of allExerciseIds) {
-        const recentLogs = await supabase
-          .from("set_logs")
-          .select("weight_lbs, workout_exercise_entries!inner(exercise_id)")
-          .eq("workout_exercise_entries.exercise_id", exId)
-          .not("weight_lbs", "is", null)
-          .order("created_at", { ascending: false })
-          .limit(1);
-
-        const logs = recentLogs.data as { weight_lbs: number }[] | null;
-        const lastWeight = Number(logs?.[0]?.weight_lbs ?? 0);
-        if (lastWeight > 0) suggestionMap[exId] = `${lastWeight + 5} lbs next`;
-      }
-      setNextWeightSuggestion(suggestionMap);
-
-      const completionResult = await supabase
+      const { data: comp } = await supabase
         .from("program_day_completions")
         .select("program_day_id")
-        .eq("user_id", user.id)
-        .eq("program_id", currentProgram.id);
-      if (!completionResult.error)
-        setCompletedDayIds(
-          (completionResult.data as any[]).map((row) => row.program_day_id),
-        );
+        .eq("user_id", user.id);
+      if (comp) setCompletedDayIds(comp.map((r) => r.program_day_id));
     }
 
-    const swapsResult = await supabase
+    const { data: exData } = await supabase
       .from("exercises")
       .select("id, name")
       .order("name", { ascending: true })
-      .limit(100);
-    if (!swapsResult.error)
-      setSwapOptions(swapsResult.data as any as ExerciseOption[]);
+      .limit(50);
+    if (exData) setSwapOptions(exData as unknown as ExerciseOption[]);
 
     setLoading(false);
-  };
-
-  useEffect(() => {
-    void loadPlan();
-  }, []);
+  }, [router]);
 
   const generatePlan = async () => {
+    setGenerating(true);
+    setFeedback("Calibrating Neural Pathways...");
     const supabase = getSupabaseClient();
     if (!supabase) return;
-    setGenerating(true);
-    setFeedback("");
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      setGenerating(false);
-      router.replace("/auth");
-      return;
-    }
-
-    const prefsResult = await supabase
-      .from("user_setup_preferences")
-      .select("*")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    if (prefsResult.error || !prefsResult.data) {
-      setGenerating(false);
-      router.push("/setup");
-      return;
-    }
-
-    const preferences = prefsResult.data as SetupPreferenceRow;
-    const pool = buildExercisePool(
-      preferences.primary_goal,
-      preferences.equipment_type,
-    );
-    const filteredPool = pool.filter(
-      (name) =>
-        !(preferences.disliked_exercises ?? []).some(
-          (item) => item.toLowerCase().trim() === name.toLowerCase().trim(),
-        ),
-    );
-    const poolToUse = filteredPool.length >= 3 ? filteredPool : pool;
-    const scheme = tuneSchemeForDuration(
-      buildRepScheme(preferences.primary_goal),
-      preferences.session_minutes,
-    );
-    const exercisesPerDay = getExerciseCountForDuration(
-      preferences.session_minutes,
-    );
-
-    const { data: createdProgram } = await supabase
-      .from("programs")
-      .insert({
-        owner_id: user.id,
-        name: "Starter Plan",
-        description: `${preferences.primary_goal} cycle`,
-      } as never)
-      .select("id")
-      .single();
-
-    const createdProgramId = (createdProgram as { id: string } | null)?.id;
-    if (!createdProgramId) {
-      setGenerating(false);
-      return;
-    }
-
-    for (
-      let dayIndex = 0;
-      dayIndex < preferences.days_per_week;
-      dayIndex += 1
-    ) {
-      const { data: dayRow } = await supabase
-        .from("program_days")
-        .insert({
-          program_id: createdProgramId,
-          day_index: dayIndex,
-          name: `Day ${dayIndex + 1}`,
-        } as never)
-        .select("id")
-        .single();
-
-      const dayRowId = (dayRow as { id: string } | null)?.id;
-      if (!dayRowId) continue;
-
-      const start = (dayIndex * 2) % poolToUse.length;
-      const dayExerciseNames = Array.from(
-        { length: exercisesPerDay },
-        (_, offset) => poolToUse[(start + offset) % poolToUse.length],
-      );
-
-      for (let i = 0; i < dayExerciseNames.length; i += 1) {
-        const exerciseName = dayExerciseNames[i];
-        const { data: existingExercise } = await supabase
-          .from("exercises")
-          .select("id")
-          .eq("name", exerciseName)
-          .maybeSingle();
-        let exerciseId = (existingExercise as { id: string } | null)?.id;
-
-        if (!exerciseId) {
-          const { data: newEx } = await supabase
-            .from("exercises")
-            .insert({
-              name: exerciseName,
-              category:
-                preferences.primary_goal === "Improve endurance"
-                  ? "cardio"
-                  : "strength",
-              equipment: preferences.equipment_type,
-              is_custom: true,
-              created_by: user.id,
-            } as never)
-            .select("id")
-            .single();
-          exerciseId = (newEx as { id: string } | null)?.id;
-        }
-
-        if (exerciseId) {
-          await supabase.from("program_day_exercises").insert({
-            program_day_id: dayRowId,
-            exercise_id: exerciseId,
-            order_index: i,
-            target_sets: scheme.sets,
-            target_reps_min: scheme.minReps,
-            target_reps_max: scheme.maxReps,
-            rest_seconds: scheme.rest,
-            notes: `${preferences.session_minutes}-minute session`,
-          } as never);
-        }
-      }
-    }
-
-    setGenerating(false);
-    setFeedback("Starter plan generated.");
-    await loadPlan();
-  };
-
-  const toggleCompleteDay = async (dayId: string) => {
-    const supabase = getSupabaseClient();
-    if (!supabase || !program) return;
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return;
 
-    const isCompleted = completedDayIds.includes(dayId);
-    if (isCompleted) {
-      await supabase
-        .from("program_day_completions")
-        .delete()
-        .eq("user_id", user.id)
-        .eq("program_id", program.id)
-        .eq("program_day_id", dayId);
-      setCompletedDayIds((prev) => prev.filter((id) => id !== dayId));
+    const { data: prefs } = await (supabase
+      .from("user_setup_preferences")
+      .select("*")
+      .eq("user_id", user.id)
+      .single() as any);
+    if (!prefs) {
+      setFeedback("Setup preferences required.");
+      setGenerating(false);
       return;
     }
 
-    const { error: insErr } = await supabase
-      .from("program_day_completions")
+    const pool = buildExercisePool(prefs.primary_goal, prefs.equipment_type);
+    const scheme = buildRepScheme(prefs.primary_goal);
+
+    await supabase
+      .from("programs")
+      .delete()
+      .eq("owner_id", user.id)
+      .eq("name", "Starter Plan");
+
+    const { data: newProg } = await (supabase
+      .from("programs")
       .insert({
-        user_id: user.id,
-        program_id: program.id,
-        program_day_id: dayId,
-      } as never);
+        owner_id: user.id,
+        name: "Starter Plan",
+        description: `Generated for ${prefs.primary_goal}`,
+      })
+      .select()
+      .single() as any);
 
-    if (insErr) {
-      setFeedback(`Error: ${insErr.message}`);
-      return;
-    }
-
-    const selectedDay = program.program_days.find((day) => day.id === dayId);
-    if (!selectedDay) return;
-
-    const { data: sessionData } = await supabase
-      .from("workout_sessions")
-      .insert({
-        user_id: user.id,
-        title: selectedDay.name ?? `Day ${selectedDay.day_index + 1} Workout`,
-      } as never)
-      .select("id")
-      .single();
-
-    const sessionId = (sessionData as { id: string } | null)?.id;
-
-    if (sessionId) {
-      for (const ex of selectedDay.program_day_exercises) {
-        const { data: entryData } = await supabase
-          .from("workout_exercise_entries")
+    if (newProg) {
+      for (let i = 0; i < prefs.days_per_week; i++) {
+        const { data: day } = await (supabase
+          .from("program_days")
           .insert({
-            session_id: sessionId,
-            exercise_id: ex.exercise_id,
-            order_index: ex.order_index,
-          } as never)
-          .select("id")
-          .single();
+            program_id: newProg.id,
+            day_index: i,
+            name: `Unit ${i + 1}`,
+          })
+          .select()
+          .single() as any);
 
-        const entryId = (entryData as { id: string } | null)?.id;
-
-        if (entryId) {
-          const weight = Number(exerciseWeights[ex.id] ?? 0);
-          for (let s = 1; s <= (ex.target_sets ?? 1); s++) {
-            await supabase.from("set_logs").insert({
-              entry_id: entryId,
-              set_number: s,
-              reps: ex.target_reps_max ?? 8,
-              weight_lbs: bodyweightOnly[ex.id] || weight <= 0 ? null : weight,
-              is_warmup: false,
-            } as never);
+        if (day) {
+          const selected = [...pool]
+            .sort(() => 0.5 - Math.random())
+            .slice(0, 5);
+          for (let j = 0; j < selected.length; j++) {
+            const { data: ex } = await (supabase
+              .from("exercises")
+              .select("id")
+              .eq("name", selected[j])
+              .maybeSingle() as any);
+            if (ex) {
+              await supabase.from("program_day_exercises").insert({
+                program_day_id: day.id,
+                exercise_id: ex.id,
+                order_index: j,
+                target_sets: scheme.sets,
+                target_reps_min: scheme.minReps,
+                target_reps_max: scheme.maxReps,
+                rest_seconds: scheme.rest,
+              });
+            }
           }
         }
       }
     }
-
-    await supabase.from("workout_day_feedback").insert({
-      user_id: user.id,
-      program_id: program.id,
-      program_day_id: dayId,
-      difficulty: dayDifficulty[dayId] ?? "just_right",
-    } as never);
-
-    setCompletedDayIds((prev) => [...prev, dayId]);
+    await loadPlan();
+    setGenerating(false);
+    setFeedback("Neural Link Established.");
   };
 
-  const swapExercise = async (
-    programDayExerciseId: string,
-    nextExerciseId: string,
-  ) => {
+  const toggleCompleteDay = async (dayId: string) => {
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    if (completedDayIds.includes(dayId)) {
+      await supabase
+        .from("program_day_completions")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("program_day_id", dayId);
+      setCompletedDayIds((prev) => prev.filter((id) => id !== dayId));
+    } else {
+      await supabase.from("program_day_completions").insert({
+        user_id: user.id,
+        program_day_id: dayId,
+        program_id: program?.id,
+      });
+      setCompletedDayIds((prev) => [...prev, dayId]);
+    }
+  };
+
+  const swapExercise = async (dayExerciseId: string, newExerciseId: string) => {
     const supabase = getSupabaseClient();
     if (!supabase) return;
     await supabase
       .from("program_day_exercises")
-      .update({ exercise_id: nextExerciseId } as never)
-      .eq("id", programDayExerciseId);
-    await loadPlan();
+      .update({ exercise_id: newExerciseId })
+      .eq("id", dayExerciseId);
+    void loadPlan();
   };
 
-  if (loading) {
-    return (
-      <main className='flex min-h-screen items-center justify-center bg-zinc-950 font-mono text-[10px] uppercase tracking-[0.3em] text-violet-500'>
-        Syncing Neural Plan...
-      </main>
-    );
-  }
+  useEffect(() => {
+    void loadPlan();
+  }, [loadPlan]);
 
-  const completedCount = completedDayIds.length;
+  useEffect(() => {
+    const queryParams = new URLSearchParams(window.location.search);
+    if (queryParams.get("recalibrate") === "true") {
+      window.history.replaceState(null, "", window.location.pathname);
+      void generatePlan();
+    }
+  }, []);
+
+  const completedCount =
+    program?.program_days.filter((d) => completedDayIds.includes(d.id))
+      .length ?? 0;
   const totalDays = program?.program_days.length ?? 0;
 
   return (
     <main className='min-h-screen bg-zinc-950 px-6 py-12 text-zinc-100'>
       <div className='fixed inset-0 overflow-hidden pointer-events-none'>
-        <div className='absolute -top-[5%] -right-[5%] w-[35%] h-[35%] bg-violet-900/10 blur-[100px] rounded-full' />
+        <div className='absolute -top-[5%] -right-[5%] w-[35%] h-[35%] bg-violet-600/10 blur-[120px] rounded-full' />
       </div>
 
       <div className='relative mx-auto w-full max-w-4xl rounded-3xl border border-zinc-800 bg-zinc-900/40 p-8 backdrop-blur-xl shadow-2xl'>
@@ -612,14 +344,14 @@ export default function PlanPage() {
           <div className='flex gap-3'>
             <Link
               href='/setup'
-              className='rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2 text-xs font-bold text-zinc-400 hover:text-white transition-colors'
+              className='rounded-xl border border-zinc-800 bg-zinc-900 px-6 py-2 text-xs font-black uppercase tracking-widest text-zinc-400 hover:text-white transition-all'
             >
               Setup
             </Link>
             <button
               onClick={generatePlan}
               disabled={generating}
-              className='rounded-xl bg-violet-600 px-6 py-2 text-xs font-black text-white uppercase tracking-widest hover:bg-violet-500 transition-all active:scale-95 disabled:opacity-50'
+              className='rounded-xl bg-violet-600 px-6 py-2 text-xs font-black uppercase tracking-widest text-white hover:bg-violet-500 transition-all shadow-lg shadow-violet-900/20'
             >
               {generating
                 ? "Calibrating..."
@@ -631,7 +363,7 @@ export default function PlanPage() {
         </header>
 
         {!program ? (
-          <div className='py-20 text-center border border-dashed border-zinc-800 rounded-2xl bg-zinc-950/30'>
+          <div className='py-20 text-center border border-dashed border-zinc-800 rounded-3xl'>
             <p className='text-xs font-mono uppercase tracking-[0.2em] text-zinc-600'>
               No Program Data Detected
             </p>
@@ -652,22 +384,22 @@ export default function PlanPage() {
                 return (
                   <section
                     key={day.id}
-                    className={`group rounded-2xl border transition-all duration-300 ${completed ? "border-violet-500/20 bg-violet-500/5 opacity-60" : "border-zinc-800 bg-zinc-900/30 p-6"}`}
+                    className={`group rounded-2xl border transition-all p-6 ${completed ? "bg-zinc-950/50 border-zinc-900 opacity-60" : "bg-zinc-900 border-zinc-800 shadow-xl"}`}
                   >
                     <div className='flex items-center justify-between mb-6'>
                       <div>
                         <h2
-                          className={`text-xl font-black ${completed ? "text-white" : "text-white"}`}
+                          className={`text-xl font-black ${completed ? "text-zinc-600 line-through" : "text-zinc-100"}`}
                         >
                           {day.name}
                         </h2>
                         <div className='flex items-center gap-3 mt-1'>
                           <span
-                            className={`text-[10px] font-mono border rounded px-2 py-0.5 uppercase ${badge.className}`}
+                            className={`text-[10px] font-mono border rounded-full px-2 py-0.5 uppercase ${badge.className}`}
                           >
                             {badge.label}
                           </span>
-                          <span className='text-[10px] font-mono text-zinc-600 uppercase'>
+                          <span className='text-[10px] font-mono text-zinc-600'>
                             {estimated} min est.
                           </span>
                         </div>
@@ -675,13 +407,13 @@ export default function PlanPage() {
                       <div className='flex gap-2'>
                         <button
                           onClick={() => toggleCompleteDay(day.id)}
-                          className={`rounded-lg px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${completed ? "bg-violet-500/20 text-violet-400 border border-violet-500/30" : "bg-zinc-800 text-zinc-300 border border-zinc-700 hover:bg-zinc-700"}`}
+                          className={`rounded-lg px-4 py-2 text-[10px] font-black uppercase tracking-widest border transition-all ${completed ? "border-green-500/50 text-green-400 bg-green-500/10" : "border-zinc-700 text-zinc-400 hover:border-white"}`}
                         >
                           {completed ? "Done" : "Mark Done"}
                         </button>
                         <Link
                           href={`/workout?dayId=${day.id}`}
-                          className='rounded-lg bg-zinc-100 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-900 hover:bg-white transition-all'
+                          className='rounded-lg bg-zinc-100 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-950 hover:bg-white transition-all'
                         >
                           Start
                         </Link>
@@ -692,7 +424,7 @@ export default function PlanPage() {
                       {day.program_day_exercises.map((ex) => (
                         <div
                           key={ex.id}
-                          className='flex flex-wrap items-center justify-between gap-4 rounded-xl border border-zinc-800/50 bg-zinc-950/40 p-4 transition-colors hover:border-zinc-700'
+                          className='flex flex-wrap items-center justify-between gap-4 rounded-xl border border-zinc-800/50 bg-zinc-950/30 p-4 transition-all hover:border-zinc-700'
                         >
                           <div className='min-w-[200px]'>
                             <p className='text-sm font-bold text-zinc-100'>
@@ -703,12 +435,11 @@ export default function PlanPage() {
                               {ex.target_reps_max}R
                             </p>
                           </div>
-
                           <div className='flex items-center gap-4'>
                             <input
                               type='number'
                               placeholder='lbs'
-                              className='w-20 rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-xs text-white focus:border-violet-500/50 outline-none'
+                              className='w-20 rounded-lg border border-zinc-800 bg-zinc-950 p-2 text-center text-xs font-bold text-white outline-none focus:border-violet-500/50'
                               value={exerciseWeights[ex.id] || ""}
                               onChange={(e) =>
                                 setExerciseWeights((p) => ({
@@ -719,14 +450,14 @@ export default function PlanPage() {
                               disabled={bodyweightOnly[ex.id]}
                             />
                             <select
-                              className='bg-transparent text-[10px] font-bold text-zinc-600 uppercase outline-none'
+                              className='bg-transparent text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-white cursor-pointer outline-none'
                               onChange={(e) =>
                                 swapExercise(ex.id, e.target.value)
                               }
                               value=''
                             >
                               <option value=''>Swap</option>
-                              {swapOptions.slice(0, 20).map((opt) => (
+                              {swapOptions.map((opt) => (
                                 <option
                                   key={opt.id}
                                   value={opt.id}
@@ -745,10 +476,9 @@ export default function PlanPage() {
               })}
           </div>
         )}
-
         {feedback && (
           <div className='mt-8 border-t border-zinc-800 pt-6'>
-            <p className='text-center font-mono text-[10px] text-violet-400 uppercase tracking-widest'>
+            <p className='text-center font-mono text-[10px] text-violet-400 uppercase tracking-widest italic'>
               {feedback}
             </p>
           </div>
