@@ -511,7 +511,7 @@ export default function WorkoutUI(props: Props) {
               return (
                 <TouchableOpacity
                   key={m}
-                  activeOpacity={0.85}
+                  activeOpacity={0.88}
                   onPress={() => {
                     if (m === "Full Body") {
                       setSelectedFocus(["Full Body"]);
@@ -529,32 +529,54 @@ export default function WorkoutUI(props: Props) {
                       );
                     }
                   }}
-                  style={[
-                    styles.pill,
-                    {
+                  style={{
+                    transform: [{ scale: isSelected ? 1.03 : 1 }],
+                  }}
+                >
+                  <LinearGradient
+                    colors={
+                      isSelected
+                        ? [NEON_GREEN, "#D8FF72"]
+                        : ["rgba(255,255,255,0.10)", "rgba(255,255,255,0.04)"]
+                    }
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={{
                       paddingVertical: 16,
-                      paddingHorizontal: 20,
-                      borderRadius: 22,
-                      backgroundColor: isSelected
-                        ? NEON_GREEN
-                        : "rgba(255,255,255,0.06)",
+                      paddingHorizontal: 22,
+                      borderRadius: 24,
+
                       borderWidth: 1,
                       borderColor: isSelected
-                        ? "transparent"
+                        ? "rgba(255,255,255,0.12)"
                         : "rgba(255,255,255,0.06)",
-                    },
-                  ]}
-                >
-                  <Text
-                    style={{
-                      color: isSelected ? "#000" : "#fff",
-                      fontWeight: isSelected ? "700" : "600",
-                      fontSize: 15,
-                      letterSpacing: -0.2,
+
+                      shadowColor: isSelected ? NEON_GREEN : "#000",
+                      shadowOpacity: isSelected ? 0.35 : 0.15,
+                      shadowRadius: isSelected ? 18 : 8,
+                      shadowOffset: {
+                        width: 0,
+                        height: isSelected ? 8 : 4,
+                      },
+
+                      elevation: isSelected ? 10 : 2,
+
+                      minWidth: 120,
+                      alignItems: "center",
+                      justifyContent: "center",
                     }}
                   >
-                    {m}
-                  </Text>
+                    <Text
+                      style={{
+                        color: isSelected ? "#000" : "#fff",
+                        fontWeight: isSelected ? "800" : "600",
+                        fontSize: 15,
+                        letterSpacing: -0.2,
+                      }}
+                    >
+                      {m}
+                    </Text>
+                  </LinearGradient>
                 </TouchableOpacity>
               );
             })}

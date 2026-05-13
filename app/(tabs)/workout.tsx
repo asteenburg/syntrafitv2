@@ -35,6 +35,22 @@ const MUSCLE_GROUPS: Muscle[] = [
   "Cardio",
 ];
 
+const MUSCLE_EXPANSIONS: Partial<Record<Muscle, Muscle[]>> = {
+  Legs: ["Quads", "Hamstrings", "Calves"],
+
+  "Full Body": [
+    "Chest",
+    "Back",
+    "Quads",
+    "Hamstrings",
+    "Calves",
+    "Shoulders",
+    "Biceps",
+    "Triceps",
+    "Core",
+  ],
+};
+
 /**
  * =========================
  * TYPES
@@ -81,7 +97,10 @@ export default function Workout() {
     }, 1000);
 
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+
       intervalRef.current = null;
     };
   }, [mode]);
@@ -124,26 +143,83 @@ export default function Workout() {
     setWorkout([]);
     setSelectedFocus([]);
     setActiveExercise(null);
+
     setActiveLogs({});
     setActiveReps({});
+
     setSessionTime(0);
+
     setMode("idle");
   };
 
   /**
    * =========================
-   * CANONICAL KEY (FIX DUPLICATES)
+   * RESOLVE FOCUS
+   * =========================
+   */
+
+  const resolveFocusGroups = (focus: Muscle[]): Muscle[] => {
+    const expanded = new Set<Muscle>();
+
+    focus.forEach((m) => {
+      const mapped = MUSCLE_EXPANSIONS[m];
+
+      if (mapped?.length) {
+        mapped.forEach((sub) => expanded.add(sub));
+      } else {
+        expanded.add(m);
+      }
+    });
+
+    return Array.from(expanded);
+  };
+
+  /**
+   * =========================
+   * CANONICAL KEY
    * =========================
    */
 
   const getMovementKey = (ex: any) => {
-    const name = (ex.name ?? "").toLowerCase();
+    return (ex.name ?? "").toLowerCase().replace(/\s+/g, " ").trim();
+  };
 
-    return name
-      .replace(/barbell|dumbbell|machine|cable|smith/g, "")
-      .replace(/standing|seated|incline|decline|flat/g, "")
-      .replace(/\s+/g, " ")
-      .trim();
+  /**
+   * =========================
+   * SAFE REP PARSER
+   * =========================
+   */
+
+  const parseRepValue = (reps: any): number => {
+    if (typeof reps === "number") {
+      return reps;
+    }
+
+    if (typeof reps === "string") {
+      const parsed = parseInt(reps.split("-")[0]);
+
+      if (!Number.isNaN(parsed)) {
+        return parsed;
+      }
+    }
+
+    return 10;
+  };
+
+  /**
+   * =========================
+   * SAFE SET PARSER
+   * =========================
+   */
+
+  const parseSetValue = (sets: any): number => {
+    const parsed = Number(sets);
+
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return Math.floor(parsed);
+    }
+
+    return 3;
   };
 
   /**
@@ -153,22 +229,62 @@ export default function Workout() {
    */
 
   const generateWorkout = async () => {
-    if (!userId || selectedFocus.length === 0) return;
+    if (!userId || selectedFocus.length === 0) {
+      return;
+    }
 
     setMode("saving");
 
     try {
-      const history = await getExerciseHistory(userId, selectedFocus);
+      /**
+       * =========================
+       * EXPAND ABSTRACT GROUPS
+       * =========================
+       */
+
+      const expandedFocus = resolveFocusGroups(selectedFocus);
+
+      console.log("SELECTED FOCUS:", selectedFocus);
+
+      console.log("EXPANDED FOCUS:", expandedFocus);
+
+      /**
+       * =========================
+       * HISTORY
+       * =========================
+       */
+
+      const history = await getExerciseHistory(userId, expandedFocus);
+
+      /**
+       * =========================
+       * GENERATE
+       * =========================
+       */
 
       const ai = await generateWorkoutV7({
         userId,
-        focus: selectedFocus,
+
+        focus: expandedFocus,
+
         goal: profile?.training_goal ?? "Hypertrophy",
+
         level: profile?.experience_level ?? "Intermediate",
+
         duration: 30,
+
         equipment: profile?.training_location ?? "Gym",
+
         history,
       });
+
+      console.log(
+        "AI EXERCISES:",
+        ai?.exercises?.map((e: any) => ({
+          name: e.name,
+          muscle: e.muscle,
+        }))
+      );
 
       if (!ai?.exercises?.length) {
         throw new Error("No exercises returned");
@@ -176,13 +292,28 @@ export default function Workout() {
 
       /**
        * =========================
-       * DEDUPE BY MOVEMENT
+       * VALIDATE EXERCISES
+       * =========================
+       */
+
+      const validExercises = ai.exercises.filter(
+        (ex: any) =>
+          ex && typeof ex.name === "string" && ex.name.trim().length > 0
+      );
+
+      if (!validExercises.length) {
+        throw new Error("No valid exercises returned");
+      }
+
+      /**
+       * =========================
+       * DEDUPE
        * =========================
        */
 
       const unique = new Map<string, any>();
 
-      ai.exercises.forEach((ex: any, i: number) => {
+      validExercises.forEach((ex: any) => {
         const key = getMovementKey(ex);
 
         if (!unique.has(key)) {
@@ -195,60 +326,82 @@ export default function Workout() {
 
       /**
        * =========================
-       * FORMAT EXERCISES
+       * FORMAT
        * =========================
        */
 
       const formatted: Exercise[] = Array.from(unique.values()).map(
-        (ex: any, i: number) => ({
-          id: `${getMovementKey(ex)}-${i}`,
-          name: ex.name,
-          muscle: ex.muscle,
-          sets: ex.sets ?? 3,
-          reps:
-            typeof ex.reps === "string"
-              ? parseInt(ex.reps.split("-")[0])
-              : ex.reps ?? 10,
-          weight: ex.weight ?? 0,
-          movement_id: getMovementKey(ex),
+        (ex: any, i: number) => {
+          const parsedSets = parseSetValue(ex.sets);
 
-          // ✅ REQUIRED FIELD (THIS FIXES YOUR ERROR)
-          type: ex.type ?? "Accessory",
-        })
+          const parsedReps = parseRepValue(ex.reps);
+
+          return {
+            id: `${getMovementKey(ex)}-${i}`,
+
+            name: ex.name ?? "Exercise",
+
+            muscle: (ex.muscle as Muscle) ?? selectedFocus[0],
+
+            sets: parsedSets,
+
+            reps: parsedReps,
+
+            weight: typeof ex.weight === "number" ? ex.weight : 0,
+
+            movement_id: getMovementKey(ex),
+
+            type: ex.type ?? "Accessory",
+          };
+        }
       );
+
+      if (!formatted.length) {
+        throw new Error("No formatted exercises available");
+      }
 
       /**
        * =========================
-       * INIT STATE
+       * INIT TRACKING
        * =========================
        */
 
       const logs: Record<string, number[]> = {};
+
       const reps: Record<string, number[]> = {};
 
       formatted.forEach((ex) => {
         logs[ex.id] = Array.from({ length: ex.sets }, () => ex.weight);
 
         reps[ex.id] = Array.from({ length: ex.sets }, () =>
-          typeof ex.reps === "string"
-            ? parseInt(ex.reps.split("-")[0])
-            : ex.reps ?? 10
+          parseRepValue(ex.reps)
         );
       });
 
+      /**
+       * =========================
+       * STATE
+       * =========================
+       */
+
       setWorkout(formatted);
+
       setActiveLogs(logs);
+
       setActiveReps(reps);
 
       setActiveExercise(formatted[0]?.id ?? null);
+
       setSessionTime(0);
 
       setMode("ready");
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (e) {
-      console.log(e);
-      Alert.alert("Error", "Workout generation failed");
+    } catch (e: any) {
+      console.log("WORKOUT GENERATION ERROR:", e);
+
+      Alert.alert("Error", e?.message ?? "Workout generation failed");
+
       setMode("idle");
     }
   };
@@ -259,36 +412,67 @@ export default function Workout() {
    * =========================
    */
 
-  const startSession = () => setMode("active");
+  const startSession = () => {
+    setMode("active");
+  };
 
   const saveWorkout = async () => {
     setMode("saving");
 
     try {
       const { data } = await supabase.auth.getUser();
+
       const user = data.user;
 
-      if (!user) throw new Error("No user");
+      if (!user) {
+        throw new Error("No user");
+      }
+
+      /**
+       * =========================
+       * TOTAL VOLUME
+       * =========================
+       */
 
       const volume = workout.reduce((total, ex) => {
-        const w = activeLogs[ex.id] ?? [];
-        const r = activeReps[ex.id] ?? [];
+        const weights = activeLogs[ex.id] ?? [];
 
-        return total + w.reduce((s, v, i) => s + v * (r[i] ?? 0), 0);
+        const reps = activeReps[ex.id] ?? [];
+
+        return (
+          total +
+          weights.reduce((sum, weight, i) => sum + weight * (reps[i] ?? 0), 0)
+        );
       }, 0);
+
+      /**
+       * =========================
+       * PAYLOAD
+       * =========================
+       */
 
       const payload = {
         user_id: user.id,
+
         created_at: new Date().toISOString(),
+
         duration: sessionTime,
+
         volume,
+
         exercises: workout.map((ex) => ({
           id: ex.id,
+
           name: ex.name,
+
           muscle: ex.muscle,
+
           movement_id: ex.movement_id,
+
           sets: ex.sets,
+
           logs: activeLogs[ex.id],
+
           reps: activeReps[ex.id],
         })),
       };
@@ -299,25 +483,47 @@ export default function Workout() {
 
       if (error) {
         Alert.alert("Save failed", error.message);
+
         setMode("active");
+
         return;
       }
 
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
       resetAll();
     } catch (e: any) {
-      Alert.alert("Error", e.message ?? "Save failed");
+      Alert.alert("Error", e?.message ?? "Save failed");
+
       setMode("active");
     }
   };
 
+  /**
+   * =========================
+   * ABORT
+   * =========================
+   */
+
   const handleAbort = () => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+
     resetAll();
   };
 
+  /**
+   * =========================
+   * TIME FORMAT
+   * =========================
+   */
+
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60);
+
     const sec = s % 60;
+
     return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
   };
 
