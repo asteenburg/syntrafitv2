@@ -1,3 +1,9 @@
+// ===============================
+// APPLE FITNESS+ STYLE POLISH
+// LOGIC UNCHANGED
+// ONLY STYLING / VISUAL ENHANCEMENTS
+// ===============================
+
 import React from "react";
 import {
   FlatList,
@@ -64,18 +70,12 @@ export default function WorkoutUI(props: Props) {
     styles,
   } = props;
 
-  /**
-   * Primary Button Logic (Generate -> Start -> Finish)
-   */
   const handlePrimaryAction = () => {
     if (status === "idle") return generateWorkout();
     if (status === "ready") return startSession();
     if (status === "active") return saveWorkout();
   };
 
-  /**
-   * Updates manual weight/reps for a specific set
-   */
   const updateSetData = (
     id: string,
     index: number,
@@ -87,8 +87,9 @@ export default function WorkoutUI(props: Props) {
 
     setter((prev) => {
       const currentArr = [...(prev[id] ?? [])];
-      // Ensure we don't go below 0
+
       currentArr[index] = Math.max(0, (currentArr[index] ?? 0) + delta);
+
       return { ...prev, [id]: currentArr };
     });
   };
@@ -100,28 +101,117 @@ export default function WorkoutUI(props: Props) {
 
     return (
       <TouchableOpacity
-        activeOpacity={0.8}
+        activeOpacity={0.92}
         onPress={() => {
           if (!isSelectable) return;
           setActiveExercise(isFocused ? null : item.id);
         }}
+        style={{
+          marginHorizontal: 16,
+          marginBottom: 18,
+        }}
       >
-        <BlurView intensity={40} tint="dark" style={styles.exerciseCard}>
-          <View style={{ padding: 20 }}>
-            <Text style={styles.exerciseTitle}>{item.name}</Text>
-            <Text style={styles.exerciseSub}>
-              {item.muscle} • {item.sets} sets
-            </Text>
+        <BlurView
+          intensity={65}
+          tint="dark"
+          style={[
+            styles.exerciseCard,
+            {
+              overflow: "hidden",
+              borderRadius: 30,
+              borderWidth: 1,
+              borderColor: "rgba(255,255,255,0.06)",
+              backgroundColor: "rgba(24,24,24,0.72)",
+            },
+          ]}
+        >
+          {/* subtle glow edge */}
+          <LinearGradient
+            colors={["rgba(255,255,255,0.08)", "transparent", "transparent"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 120,
+            }}
+          />
+
+          <View style={{ padding: 22 }}>
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[
+                    styles.exerciseTitle,
+                    {
+                      fontSize: 24,
+                      fontWeight: "700",
+                      letterSpacing: -0.7,
+                    },
+                  ]}
+                >
+                  {item.name}
+                </Text>
+
+                <Text
+                  style={[
+                    styles.exerciseSub,
+                    {
+                      marginTop: 6,
+                      color: "rgba(255,255,255,0.5)",
+                      fontSize: 14,
+                      letterSpacing: 0.3,
+                    },
+                  ]}
+                >
+                  {item.muscle} • {item.sets} sets
+                </Text>
+              </View>
+
+              <View
+                style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: 999,
+                  backgroundColor: NEON_GREEN,
+                  opacity: isFocused ? 1 : 0.35,
+                }}
+              />
+            </View>
 
             {isFocused && (
-              <View style={{ marginTop: 15 }}>
+              <View style={{ marginTop: 24 }}>
                 {Array.from({ length: item.sets }).map((_, i) => (
-                  <View
+                  <BlurView
                     key={`${item.id}-set-${i}`}
-                    style={{ marginBottom: 12 }}
+                    intensity={30}
+                    tint="dark"
+                    style={{
+                      marginBottom: 14,
+                      padding: 16,
+                      borderRadius: 22,
+                      overflow: "hidden",
+                      borderWidth: 1,
+                      borderColor: "rgba(255,255,255,0.05)",
+                      backgroundColor: "rgba(255,255,255,0.03)",
+                    }}
                   >
                     <Text
-                      style={{ color: "#888", fontSize: 12, marginBottom: 4 }}
+                      style={{
+                        color: "rgba(255,255,255,0.4)",
+                        fontSize: 11,
+                        marginBottom: 14,
+                        letterSpacing: 1.8,
+                        fontWeight: "700",
+                      }}
                     >
                       SET {i + 1}
                     </Text>
@@ -133,80 +223,188 @@ export default function WorkoutUI(props: Props) {
                         justifyContent: "space-between",
                       }}
                     >
-                      {/* Weight Controls */}
+                      {/* Weight */}
                       <View
                         style={{
                           flexDirection: "row",
                           alignItems: "center",
-                          gap: 15,
+                          gap: 14,
                         }}
                       >
                         <TouchableOpacity
                           onPress={() =>
                             updateSetData(item.id, i, "weight", -5)
                           }
+                          activeOpacity={0.8}
                         >
-                          <View style={styles.adjustCircle}>
-                            <Text style={{ color: "#fff" }}>-</Text>
+                          <View
+                            style={[
+                              styles.adjustCircle,
+                              {
+                                width: 38,
+                                height: 38,
+                                borderRadius: 999,
+                                backgroundColor: "rgba(255,255,255,0.06)",
+                                justifyContent: "center",
+                                alignItems: "center",
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={{
+                                color: "#fff",
+                                fontSize: 20,
+                                fontWeight: "300",
+                              }}
+                            >
+                              −
+                            </Text>
                           </View>
                         </TouchableOpacity>
 
                         <Text
                           style={{
                             color: "#fff",
-                            minWidth: 50,
+                            minWidth: 65,
                             textAlign: "center",
+                            fontSize: 18,
+                            fontWeight: "600",
+                            letterSpacing: -0.3,
                           }}
                         >
-                          {weights[i] ?? 0} lb
+                          {weights[i] ?? 0}
+                          <Text
+                            style={{
+                              color: "rgba(255,255,255,0.45)",
+                              fontSize: 13,
+                            }}
+                          >
+                            {" "}
+                            lb
+                          </Text>
                         </Text>
 
                         <TouchableOpacity
                           onPress={() => updateSetData(item.id, i, "weight", 5)}
+                          activeOpacity={0.8}
                         >
-                          <View style={styles.adjustCircle}>
-                            <Text style={{ color: "#fff" }}>+</Text>
+                          <View
+                            style={[
+                              styles.adjustCircle,
+                              {
+                                width: 38,
+                                height: 38,
+                                borderRadius: 999,
+                                backgroundColor: "rgba(255,255,255,0.06)",
+                                justifyContent: "center",
+                                alignItems: "center",
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={{
+                                color: "#fff",
+                                fontSize: 20,
+                                fontWeight: "300",
+                              }}
+                            >
+                              +
+                            </Text>
                           </View>
                         </TouchableOpacity>
                       </View>
 
-                      {/* Rep Controls */}
+                      {/* Reps */}
                       <View
                         style={{
                           flexDirection: "row",
                           alignItems: "center",
-                          gap: 15,
+                          gap: 14,
                         }}
                       >
                         <TouchableOpacity
                           onPress={() => updateSetData(item.id, i, "reps", -1)}
+                          activeOpacity={0.8}
                         >
-                          <View style={styles.adjustCircle}>
-                            <Text style={{ color: "#fff" }}>-</Text>
+                          <View
+                            style={[
+                              styles.adjustCircle,
+                              {
+                                width: 38,
+                                height: 38,
+                                borderRadius: 999,
+                                backgroundColor: "rgba(255,255,255,0.06)",
+                                justifyContent: "center",
+                                alignItems: "center",
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={{
+                                color: "#fff",
+                                fontSize: 20,
+                                fontWeight: "300",
+                              }}
+                            >
+                              −
+                            </Text>
                           </View>
                         </TouchableOpacity>
 
                         <Text
                           style={{
                             color: NEON_GREEN,
-                            minWidth: 50,
+                            minWidth: 75,
                             textAlign: "center",
-                            fontWeight: "bold",
+                            fontSize: 20,
+                            fontWeight: "800",
+                            letterSpacing: -0.6,
                           }}
                         >
-                          {reps[i] ?? 0} reps
+                          {reps[i] ?? 0}
+                          <Text
+                            style={{
+                              color: "rgba(255,255,255,0.45)",
+                              fontSize: 13,
+                              fontWeight: "600",
+                            }}
+                          >
+                            {" "}
+                            reps
+                          </Text>
                         </Text>
 
                         <TouchableOpacity
                           onPress={() => updateSetData(item.id, i, "reps", 1)}
+                          activeOpacity={0.8}
                         >
-                          <View style={styles.adjustCircle}>
-                            <Text style={{ color: "#fff" }}>+</Text>
+                          <View
+                            style={[
+                              styles.adjustCircle,
+                              {
+                                width: 38,
+                                height: 38,
+                                borderRadius: 999,
+                                backgroundColor: "rgba(255,255,255,0.06)",
+                                justifyContent: "center",
+                                alignItems: "center",
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={{
+                                color: "#fff",
+                                fontSize: 20,
+                                fontWeight: "300",
+                              }}
+                            >
+                              +
+                            </Text>
                           </View>
                         </TouchableOpacity>
                       </View>
                     </View>
-                  </View>
+                  </BlurView>
                 ))}
               </View>
             )}
@@ -217,34 +415,111 @@ export default function WorkoutUI(props: Props) {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <Text style={styles.brand}>SYNTRAFIT</Text>
-        <Text style={styles.timer}>{formatTime(sessionTime)}</Text>
+    <View
+      style={[
+        styles.container,
+        {
+          paddingTop: insets.top,
+          backgroundColor: "#050505",
+        },
+      ]}
+    >
+      {/* Header */}
+      <View
+        style={[
+          styles.header,
+          {
+            paddingHorizontal: 24,
+            paddingTop: 10,
+            paddingBottom: 20,
+          },
+        ]}
+      >
+        <Text
+          style={[
+            styles.brand,
+            {
+              fontSize: 28,
+              fontWeight: "800",
+              letterSpacing: -1.2,
+              color: "#fff",
+            },
+          ]}
+        >
+          SYNTRAFIT
+        </Text>
+
+        <View
+          style={{
+            backgroundColor: "rgba(255,255,255,0.06)",
+            paddingHorizontal: 16,
+            paddingVertical: 8,
+            borderRadius: 999,
+            borderWidth: 1,
+            borderColor: "rgba(255,255,255,0.05)",
+          }}
+        >
+          <Text
+            style={[
+              styles.timer,
+              {
+                color: "#fff",
+                fontSize: 16,
+                fontWeight: "700",
+                letterSpacing: 1,
+              },
+            ]}
+          >
+            {formatTime(sessionTime)}
+          </Text>
+        </View>
       </View>
 
       {workout.length === 0 ? (
-        <ScrollView contentContainerStyle={styles.content}>
-          <Text style={{ color: "#888", marginBottom: 15 }}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.content,
+            {
+              paddingHorizontal: 20,
+              paddingTop: 10,
+            },
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
+          <Text
+            style={{
+              color: "rgba(255,255,255,0.55)",
+              marginBottom: 22,
+              fontSize: 16,
+              letterSpacing: -0.2,
+            }}
+          >
             What are we training today?
           </Text>
-          <View style={styles.grid}>
+
+          <View
+            style={[
+              styles.grid,
+              {
+                gap: 14,
+              },
+            ]}
+          >
             {MUSCLE_GROUPS.map((m) => {
               const isSelected = selectedFocus.includes(m);
 
               return (
                 <TouchableOpacity
                   key={m}
-                  activeOpacity={0.7}
+                  activeOpacity={0.85}
                   onPress={() => {
                     if (m === "Full Body") {
-                      // Selecting Full Body clears specific muscle groups
                       setSelectedFocus(["Full Body"]);
                     } else {
-                      // Selecting a muscle group removes Full Body fallback
                       const withoutFullBody = selectedFocus.filter(
                         (f) => f !== "Full Body"
                       );
+
                       const alreadySelected = withoutFullBody.includes(m);
 
                       setSelectedFocus(
@@ -256,13 +531,26 @@ export default function WorkoutUI(props: Props) {
                   }}
                   style={[
                     styles.pill,
-                    isSelected && { backgroundColor: NEON_GREEN },
+                    {
+                      paddingVertical: 16,
+                      paddingHorizontal: 20,
+                      borderRadius: 22,
+                      backgroundColor: isSelected
+                        ? NEON_GREEN
+                        : "rgba(255,255,255,0.06)",
+                      borderWidth: 1,
+                      borderColor: isSelected
+                        ? "transparent"
+                        : "rgba(255,255,255,0.06)",
+                    },
                   ]}
                 >
                   <Text
                     style={{
                       color: isSelected ? "#000" : "#fff",
-                      fontWeight: isSelected ? "bold" : "normal",
+                      fontWeight: isSelected ? "700" : "600",
+                      fontSize: 15,
+                      letterSpacing: -0.2,
                     }}
                   >
                     {m}
@@ -277,14 +565,60 @@ export default function WorkoutUI(props: Props) {
           data={workout}
           keyExtractor={(item) => item.id}
           renderItem={renderExerciseItem}
-          contentContainerStyle={{ paddingBottom: 100 }}
+          contentContainerStyle={{
+            paddingTop: 8,
+            paddingBottom: 180,
+          }}
+          showsVerticalScrollIndicator={false}
         />
       )}
 
-      <View style={styles.footer}>
-        <TouchableOpacity onPress={handlePrimaryAction}>
-          <LinearGradient colors={[NEON_GREEN, "#A3CC00"]} style={styles.btn}>
-            <Text style={styles.btnText}>
+      {/* Floating Footer */}
+      <View
+        style={[
+          styles.footer,
+          {
+            position: "absolute",
+            bottom: 28,
+            left: 20,
+            right: 20,
+          },
+        ]}
+      >
+        <TouchableOpacity onPress={handlePrimaryAction} activeOpacity={0.9}>
+          <LinearGradient
+            colors={[NEON_GREEN, "#C9FF45"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[
+              styles.btn,
+              {
+                height: 64,
+                borderRadius: 999,
+                justifyContent: "center",
+                alignItems: "center",
+                shadowColor: NEON_GREEN,
+                shadowOpacity: 0.45,
+                shadowRadius: 24,
+                shadowOffset: {
+                  width: 0,
+                  height: 10,
+                },
+                elevation: 12,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.btnText,
+                {
+                  color: "#000",
+                  fontSize: 17,
+                  fontWeight: "800",
+                  letterSpacing: 1.1,
+                },
+              ]}
+            >
               {status === "idle"
                 ? "GENERATE"
                 : status === "ready"
@@ -295,8 +629,27 @@ export default function WorkoutUI(props: Props) {
         </TouchableOpacity>
 
         {status === "active" && (
-          <TouchableOpacity onPress={handleAbort} style={{ marginTop: 15 }}>
-            <Text style={styles.abort}>END SESSION</Text>
+          <TouchableOpacity
+            onPress={handleAbort}
+            style={{
+              marginTop: 18,
+              alignItems: "center",
+            }}
+            activeOpacity={0.7}
+          >
+            <Text
+              style={[
+                styles.abort,
+                {
+                  color: "rgba(255,255,255,0.45)",
+                  fontSize: 13,
+                  letterSpacing: 1.4,
+                  fontWeight: "700",
+                },
+              ]}
+            >
+              END SESSION
+            </Text>
           </TouchableOpacity>
         )}
       </View>
